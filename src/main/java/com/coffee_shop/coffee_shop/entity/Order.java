@@ -53,7 +53,9 @@ public class Order extends CreatedAuditable {
     @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
-    @Column(columnDefinition = "TEXT")
+    //    @Column(columnDefinition = "TEXT")
+    @Column
+    @Lob
     private String address;
 
     @Column(length = 20)

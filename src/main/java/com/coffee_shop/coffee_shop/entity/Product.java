@@ -1,7 +1,10 @@
 package com.coffee_shop.coffee_shop.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
@@ -20,7 +23,9 @@ public class Product extends CreatedAuditable {
     @Column(nullable = false, length = 150)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
+    //    @Column(columnDefinition = "TEXT")
+    @Column
+    @Lob
     private String description;
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -37,7 +42,7 @@ public class Product extends CreatedAuditable {
     @Column(length = 255)
     private String image;
 
-    @Column(length = 50)
+    @Column(name = "product_size")
     private String size;
 
     @Column(nullable = false)
