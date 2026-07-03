@@ -27,6 +27,8 @@ public class Review extends CreatedAuditable {
     @Column(nullable = false)
     private Integer rating;
 
-    @Column(columnDefinition = "TEXT")
+    //    @Column(columnDefinition = "TEXT")
+    @Column
+    @Lob
     private String comment;
 }
