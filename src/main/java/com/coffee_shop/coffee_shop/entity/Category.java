@@ -20,8 +20,11 @@ public class Category extends CreatedAuditable  {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+//    @Column(columnDefinition = "TEXT")
+//    private String description;
+@Lob
+@Column
+private String description;
 
     @Column(length = 255)
     private String image;
