@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010
+      author: akira
+      changes:
+        - createTable:
+            tableName: favorite
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_favorite_user
+                    references: users(id)
+              - column:
+                  name: product_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_favorite_product
+                    references: product(id)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: favorite
+            columnNames: user_id, product_id
+            constraintName: uq_favorite_user_product
