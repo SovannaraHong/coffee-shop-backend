@@ -1,18 +1,25 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
+import com.coffee_shop.coffee_shop.dto.request.CategoryRequest;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
+import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.CategoryMapper;
 import com.coffee_shop.coffee_shop.repository.CategoryRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
+import com.coffee_shop.coffee_shop.specification.category.CategoryFilter;
+import com.coffee_shop.coffee_shop.specification.category.CategorySpec;
+import com.coffee_shop.coffee_shop.util.PageUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,27 +39,52 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public Category getCategoryById(Long id) {
-        return null;
+    public Category findById(Long id) {
+        return categoryRepository.findById(id).
+                orElseThrow(() -> new ResourceNotFoundException("Category not found"));
     }
 
     @Override
     public Category createCategory(Category category) {
-        return null;
+
+        Optional<Category> exits = categoryRepository.findByNameIgnoreCase(category.getName());
+
+        if (exits.isPresent()) {
+            throw BadRequestException.alreadyExits("Category", exits.get().getId(), category.getName());
+        }
+        return categoryRepository.save(category);
+    }
+
+
+    @Override
+    public Category update(Long id, CategoryRequest request) {
+        Category categoryById = findById(id);
+
+        if (!categoryById.getName().equalsIgnoreCase(request.getName())) {
+            Optional<Category> exits = categoryRepository.findByNameIgnoreCase(request.getName());
+            if (exits.isPresent()) {
+                throw BadRequestException.alreadyExits("Category", exits.get().getId(), request.getName());
+            }
+        }
+
+        categoryMapper.updateEntityFromRequest(request, categoryById);
+        return categoryRepository.save(categoryById);
     }
 
     @Override
-    public Category updateCategory(Long id, Category category) {
-        return null;
+    public void delete(Long id) {
+        Category byId = findById(id);
+        categoryRepository.delete(byId);
     }
 
     @Override
-    public void deleteCategory(Long id) {
+    public Page<CategoryResponse> getCategoriesPageable(Map<String, String> params) {
+        CategoryFilter filter = new CategoryFilter();
+        if (params.containsKey("name")) filter.setName(params.get("name"));
+        if (params.containsKey("id")) filter.setId(Long.parseLong(params.get("id")));
+        CategorySpec categorySpec = new CategorySpec(filter);
+        Pageable pageable = PageUtil.getPageable(params);
 
-    }
-
-    @Override
-    public Page<Category> getCategoriesPageable(Map<String, String> params) {
-        return null;
+        return categoryRepository.findAll(categorySpec, pageable).map(categoryMapper::toResponse);
     }
 }
