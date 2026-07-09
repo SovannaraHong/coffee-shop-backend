@@ -31,6 +31,9 @@ databaseChangeLog:
                   type: TIMESTAMP
                   constraints:
                     nullable: false
+              - column: # ADD THIS
+                  name: updated_at
+                  type: TIMESTAMP
         - addUniqueConstraint:
             tableName: favorite
             columnNames: user_id, product_id

@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/011-create-coupon-table.yaml
   - include:
       file: db/changelog/012-insert-category-data.yaml
+  - include:
+      file: db/changelog/013-insert-product-data.yaml

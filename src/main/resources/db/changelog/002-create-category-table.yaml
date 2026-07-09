@@ -26,5 +26,7 @@ databaseChangeLog:
               - column:
                   name: created_at
                   type: TIMESTAMP
-                  constraints:
-                    nullable: false
+              - column: # ADD THIS
+                  name: updated_at
+                  type: TIMESTAMP
+
