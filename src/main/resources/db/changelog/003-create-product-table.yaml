@@ -37,7 +37,9 @@ databaseChangeLog:
                   name: image
                   type: VARCHAR(255)
               - column:
-                  name: size
+                  name: PRODUCT_SIZE
+                  #                  oldColumnName: size
+                  #                  newColumnName: product_size
                   type: VARCHAR(50)
               - column:
                   name: status
@@ -57,8 +59,7 @@ databaseChangeLog:
                   type: TIMESTAMP
                   constraints:
                     nullable: false
-              - column:
+              - column: # ADD THIS
                   name: updated_at
                   type: TIMESTAMP
-                  constraints:
-                    nullable: false
+
