@@ -43,3 +43,8 @@ springdoc:
     path: /v3/api-docs
 
 
+aws:
+  access-key: ${AWS_ACCESS_KEY_ID_COFFEE}
+  secret-key: ${AWS_SECRET_ACCESS_KEY_COFFEE}
+  region: ${AWS_REGION_COFFEE}
+  bucket-name: ${AWS_BUCKET_NAME_COFFEE}

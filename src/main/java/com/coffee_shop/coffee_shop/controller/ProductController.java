@@ -6,12 +6,14 @@ import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
 import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.service.ProductService;
+import com.coffee_shop.coffee_shop.service.S3Service;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductMapper productMapper;
+    private final S3Service s3Service;
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> getProduct(@PathVariable Long id) {
@@ -61,4 +64,22 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}/image")
+    public ResponseEntity<?> uploadProductImage(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file
+    ) throws Exception {
+
+        Product product = productService.findById(id);
+
+        // delete old image first, if it was S3-hosted
+        if (product.getImage() != null && product.getImage().startsWith("https://")) {
+            s3Service.deleteFile(product.getImage());
+        }
+
+        String url = s3Service.uploadFile(file, "product_images");
+        ProductResponse response = productService.updateImage(id, url);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
 }

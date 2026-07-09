@@ -61,4 +61,6 @@ public class CategoryController {
         Page<CategoryResponse> categoriesPageable = categoryService.getCategoriesPageable(params);
         return ResponseEntity.status(HttpStatus.OK).body(new PageDTO<>(categoriesPageable));
     }
+
+
 }

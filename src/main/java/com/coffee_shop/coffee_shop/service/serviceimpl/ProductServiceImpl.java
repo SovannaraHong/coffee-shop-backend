@@ -95,4 +95,12 @@ public class ProductServiceImpl implements ProductService {
 
 
     }
+
+    @Transactional
+    @Override
+    public ProductResponse updateImage(Long id, String imageUrl) {
+        Product product = findById(id);
+        product.setImage(imageUrl);
+        return productMapper.toResponse(productRepository.save(product));
+    }
 }
