@@ -64,6 +64,12 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ProductResponse> updateStatusProduct(@PathVariable Long id) {
+        ProductResponse productResponse = productService.changeProductStatus(id);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(productResponse);
+    }
+
     @PutMapping("/{id}/image")
     public ResponseEntity<?> uploadProductImage(
             @PathVariable Long id,
