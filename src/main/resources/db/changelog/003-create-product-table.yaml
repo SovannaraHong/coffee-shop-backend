@@ -48,6 +48,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: featured
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
                   name: category_id
                   type: BIGINT
                   constraints:
