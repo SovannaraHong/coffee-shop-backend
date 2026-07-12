@@ -110,4 +110,14 @@ public class ProductServiceImpl implements ProductService {
         byId.setStatus(!byId.getStatus());
         return productMapper.toResponse(productRepository.save(byId));
     }
+
+    @Override
+    public ProductResponse findProductByCategoryId(Long id) {
+        return null;
+    }
+
+    @Override
+    public ProductResponse findFeaturedProducts() {
+        return null;
+    }
 }
