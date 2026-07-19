@@ -1,17 +1,18 @@
 package com.coffee_shop.coffee_shop.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "category")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Category extends CreatedAuditable  {
+public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,15 +21,17 @@ public class Category extends CreatedAuditable  {
     @Column(nullable = false, length = 100)
     private String name;
 
-//    @Column(columnDefinition = "TEXT")
-//    private String description;
-@Lob
-@Column
-private String description;
+    @Column
+    @Lob
+    private String description;
 
-    @Column(length = 255)
-    private String image;
+    @Column(name = "image_url", length = 255)
+    private String imageUrl;
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
-    private List<Product> products;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Product> products;
+
 }

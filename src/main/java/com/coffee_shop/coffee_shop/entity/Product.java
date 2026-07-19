@@ -1,12 +1,10 @@
 package com.coffee_shop.coffee_shop.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "product")
@@ -20,40 +18,35 @@ public class Product extends CreatedAuditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "category_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_product_category")
+    )
+    private Category category;
+
     @Column(nullable = false, length = 150)
     private String name;
 
-    //    @Column(columnDefinition = "TEXT")
-    @Column
     @Lob
+    @Column
     private String description;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    @Column(name = "image_url", length = 255)
+    private String imageUrl;
 
-    @Column(precision = 5, scale = 2)
+    @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private BigDecimal discount = BigDecimal.ZERO;
+    private Boolean isActive = true;
 
-    @Column
+    @OneToMany(
+            mappedBy = "product",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     @Builder.Default
-    private Integer stock = 0;
-
-    @Column(length = 255)
-    private String image;
-
-    @Column(name = "product_size")
-    private String size;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean status = true;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean featured = false;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_category"))
-    private Category category;
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<ProductVariant> variants = new HashSet<>();
 }
