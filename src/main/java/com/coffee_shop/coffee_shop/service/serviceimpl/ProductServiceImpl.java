@@ -103,4 +103,21 @@ public class ProductServiceImpl implements ProductService {
         product.setImage(imageUrl);
         return productMapper.toResponse(productRepository.save(product));
     }
+
+    @Override
+    public ProductResponse changeProductStatus(Long id) {
+        Product byId = findById(id);
+        byId.setStatus(!byId.getStatus());
+        return productMapper.toResponse(productRepository.save(byId));
+    }
+
+    @Override
+    public ProductResponse findProductByCategoryId(Long id) {
+        return null;
+    }
+
+    @Override
+    public ProductResponse findFeaturedProducts() {
+        return null;
+    }
 }

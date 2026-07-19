@@ -49,6 +49,10 @@ public class Product extends CreatedAuditable {
     @Builder.Default
     private Boolean status = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean featured = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_category"))
     private Category category;
