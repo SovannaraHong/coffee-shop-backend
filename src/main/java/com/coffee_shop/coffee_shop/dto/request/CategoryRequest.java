@@ -5,10 +5,14 @@ import lombok.Data;
 
 @Data
 public class CategoryRequest {
+
+
     @NotBlank(message = "name must not be blank")
     private String name;
 
     private String description;
 
+
     private String image;
+    private Boolean isActive;
 }

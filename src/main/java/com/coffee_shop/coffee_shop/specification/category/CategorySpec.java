@@ -20,14 +20,15 @@ public record CategorySpec(CategoryFilter filter) implements Specification<Categ
     //ORDER BY ...
     //Root<Category> cate    cate.get("id") | category.id
     @Override
-    public @Nullable Predicate toPredicate(Root<Category> cate, CriteriaQuery<?> query, CriteriaBuilder cb) {
+    @Nullable
+    public Predicate toPredicate(Root<Category> cate, CriteriaQuery<?> query, CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
         if (Objects.nonNull(filter.getId())) {
             predicates.add(cb.equal(cate.get("id"), filter.getId()));
         }
         if (Objects.nonNull(filter.getName())) {
-            predicates.add(cb.equal(cate.get("name"), "%" + filter.getName() + "%"));
+            predicates.add(cb.like(cb.lower(cate.get("name")), "%" + filter.getName().toLowerCase() + "%"));
         }
-        return cb.and(predicates.toArray(Predicate[]::new));
+        return cb.and(predicates.toArray(new Predicate[0]));
     }
 }

@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.service;
 
 import com.coffee_shop.coffee_shop.dto.request.CategoryRequest;
+import com.coffee_shop.coffee_shop.dto.response.CategoryDetailResponse;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
 import org.springframework.data.domain.Page;
@@ -20,4 +21,16 @@ public interface CategoryService {
     void delete(Long id);
 
     Page<CategoryResponse> getCategoriesPageable(Map<String, String> params);
+
+    CategoryResponse updateImage(Long id, String imageUrl);
+
+    List<CategoryDetailResponse> findCategoryDetail(Long id);
+
+//    |-- changeCategoryStatus() |-- findActiveCategories()
+
+    CategoryResponse changeCategoryStatus(Long id);
+
+    List<CategoryResponse> findActiveCategories();
+
+
 }

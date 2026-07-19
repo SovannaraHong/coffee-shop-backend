@@ -1,5 +1,0 @@
-NAME,DESCRIPTION,PRICE,DISCOUNT,STOCK,IMAGE,PRODUCT_SIZE,CATEGORY_ID,STATUS,created_at
-Latte,Fresh milk coffee,3.50,0.50,100,latte.jpg,M,2,true,2026-01-01 00:00:00
-Latte,Fresh milk coffee,3.50,0.50,100,latte.jpg,M,2,true,2026-01-01 00:00:00
-Americano,Strong black coffee,2.50,0.00,80,americano.jpg,L,2,true,2026-01-01 00:00:00
-Cappuccino,Foam milk coffee,4.00,0.25,60,cappuccino.jpg,M,2,true,2026-01-01 00:00:00

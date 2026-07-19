@@ -1,10 +1,12 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
 import com.coffee_shop.coffee_shop.dto.request.CategoryRequest;
+import com.coffee_shop.coffee_shop.dto.response.CategoryDetailResponse;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
+import com.coffee_shop.coffee_shop.mapper.CategoryDetailMapper;
 import com.coffee_shop.coffee_shop.mapper.CategoryMapper;
 import com.coffee_shop.coffee_shop.repository.CategoryRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
@@ -18,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -27,12 +28,13 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
+    private final CategoryDetailMapper categoryDetailMapper;
 
     @Override
     public List<CategoryResponse> getCategories() {
 
         List<Category> allCategory = categoryRepository.findAll();
-        if (Objects.isNull(allCategory) || allCategory.isEmpty()) {
+        if (allCategory.isEmpty()) {
             throw new ResourceNotFoundException("No categories found");
         }
         return categoryMapper.toResponseList(allCategory);
@@ -86,5 +88,36 @@ public class CategoryServiceImpl implements CategoryService {
         Pageable pageable = PageUtil.getPageable(params);
 
         return categoryRepository.findAll(categorySpec, pageable).map(categoryMapper::toResponse);
+    }
+
+    @Override
+    public CategoryResponse updateImage(Long id, String imageUrl) {
+        Category categoryId = findById(id);
+
+        categoryId.setImageUrl(imageUrl);
+        return categoryMapper.toResponse(categoryRepository.save(categoryId));
+
+
+    }
+
+    //TODO CHECK PRODUCT
+    @Override
+    public List<CategoryDetailResponse> findCategoryDetail(Long id) {
+        Category categoryId = findById(id);
+        return categoryDetailMapper.toResponseList(categoryId.getProducts());
+
+    }
+
+    @Override
+    public CategoryResponse changeCategoryStatus(Long id) {
+        Category category = findById(id);
+        category.setIsActive(!category.getIsActive());
+        return categoryMapper.toResponse(categoryRepository.save(category));
+    }
+
+    @Override
+    public List<CategoryResponse> findActiveCategories() {
+        return categoryRepository.findAll().stream().filter(Category::getIsActive).map(categoryMapper::toResponse).toList();
+
     }
 }

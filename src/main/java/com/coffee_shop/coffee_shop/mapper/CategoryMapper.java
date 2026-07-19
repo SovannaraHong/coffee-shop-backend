@@ -3,19 +3,18 @@ package com.coffee_shop.coffee_shop.mapper;
 import com.coffee_shop.coffee_shop.dto.request.CategoryRequest;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.*;
 
 import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface CategoryMapper {
+    @Mapping(target = "image", source = "imageUrl")
     CategoryResponse toResponse(Category category);
 
     List<CategoryResponse> toResponseList(List<Category> categories);
 
+    @Mapping(target = "imageUrl", source = "image")
     Category toEntity(CategoryRequest request);
 
     //BeanMapping ---> it copy field in object
