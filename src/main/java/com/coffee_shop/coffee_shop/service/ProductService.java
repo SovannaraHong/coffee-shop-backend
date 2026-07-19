@@ -23,4 +23,12 @@ public interface ProductService {
     void delete(Long id);
 
     ProductResponse updateImage(Long id, String imageUrl);
+
+
+    ProductResponse changeProductStatus(Long id);
+
+    ProductResponse findProductByCategoryId(Long id);
+
+    ProductResponse findFeaturedProducts();
+
 }
