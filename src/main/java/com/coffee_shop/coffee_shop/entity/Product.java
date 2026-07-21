@@ -40,6 +40,9 @@ public class Product extends CreatedAuditable {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "featured", nullable = false)
+    @Builder.Default
+    private Boolean featured = true;
     @OneToMany(
             mappedBy = "product",
             cascade = CascadeType.ALL,
@@ -48,5 +51,5 @@ public class Product extends CreatedAuditable {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Set<ProductVariant> variants = new HashSet<>();
+    private Set<Variant> variants = new HashSet<>();
 }

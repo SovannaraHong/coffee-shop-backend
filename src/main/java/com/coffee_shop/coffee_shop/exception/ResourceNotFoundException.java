@@ -8,4 +8,8 @@ public class ResourceNotFoundException extends RuntimeException {
     public static ResourceNotFoundException notFoundException(String entity, Long id) {
         return new ResourceNotFoundException(entity + " not found with id " + id);
     }
+
+    public static ResourceNotFoundException notFoundException(String entity) {
+        return new ResourceNotFoundException(entity + " not found with id ");
+    }
 }

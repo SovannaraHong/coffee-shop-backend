@@ -1,9 +1,13 @@
 package com.coffee_shop.coffee_shop.dto.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
+// ProductRequest.java
 @Data
 public class ProductRequest {
 
@@ -19,4 +23,9 @@ public class ProductRequest {
 
     private Boolean isActive;
 
+    private Boolean featured;
+
+    @NotEmpty(message = "At least one variant is required.")
+    @Valid
+    private List<VariantRequest> variants;
 }

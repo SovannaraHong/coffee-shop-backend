@@ -14,7 +14,7 @@ import java.math.BigDecimal;
         "isActive"
 })
 @Data
-public class ProductVariantResponse {
+public class VariantResponse {
 
     private Long id;
 

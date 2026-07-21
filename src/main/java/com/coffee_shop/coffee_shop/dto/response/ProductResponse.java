@@ -3,6 +3,8 @@ package com.coffee_shop.coffee_shop.dto.response;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Data;
 
+import java.util.List;
+
 @JsonPropertyOrder({
         "id",
         "name",
@@ -23,7 +25,9 @@ public class ProductResponse {
     private String imageUrl;
 
     private Boolean isActive;
-
+    private Boolean featured;
+    private Long categoryId;
     private String categoryName;
+    private List<VariantResponse> variants;
 
 }
