@@ -7,7 +7,6 @@ import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.service.S3Service;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -15,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController()
@@ -27,11 +25,6 @@ public class ProductController {
     private final ProductMapper productMapper;
     private final S3Service s3Service;
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> getProduct(@PathVariable Long id) {
-        Product byId = productService.findById(id);
-        return ResponseEntity.ok().body(productMapper.toResponse(byId));
-    }
 
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
@@ -40,35 +33,11 @@ public class ProductController {
 
     }
 
-    @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAll() {
-        return ResponseEntity.ok().body(productService.getAll());
-
+    @PostMapping("/create")
+    public ResponseEntity<ProductResponse> createProduct(@RequestBody ProductRequest productRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.create(productRequest));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductResponse> updateProduct(@PathVariable Long id, @RequestBody @Valid ProductRequest productRequest) {
-        ProductResponse update = productService.update(id, productRequest);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(update);
-    }
-
-    @PostMapping
-    public ResponseEntity<ProductResponse> create(@RequestBody @Valid ProductRequest productRequest) {
-        ProductResponse PId = productService.create(productRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(PId);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ProductResponse> delete(@PathVariable Long id) {
-        productService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<ProductResponse> updateStatusProduct(@PathVariable Long id) {
-        ProductResponse productResponse = productService.changeProductStatus(id);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(productResponse);
-    }
 
     @PutMapping("/{id}/image")
     public ResponseEntity<?> uploadProductImage(
@@ -79,8 +48,8 @@ public class ProductController {
         Product product = productService.findById(id);
 
         // delete old image first, if it was S3-hosted
-        if (product.getImage() != null && product.getImage().startsWith("https://")) {
-            s3Service.deleteFile(product.getImage());
+        if (product.getImageUrl() != null && product.getImageUrl().startsWith("https://")) {
+            s3Service.deleteFile(product.getImageUrl());
         }
 
         String url = s3Service.uploadFile(file, "product_images");
@@ -88,4 +57,6 @@ public class ProductController {
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
+
 }
