@@ -4,6 +4,7 @@ import com.coffee_shop.coffee_shop.dto.request.VariantRequest;
 import com.coffee_shop.coffee_shop.dto.response.VariantResponse;
 import org.springframework.data.domain.Page;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +26,6 @@ public interface VariantService {
 
     VariantResponse changeStatus(Long id);
 
-    VariantResponse updatePrice(Long id, VariantRequest variantRequest);
+    VariantResponse updatePrice(Long id, BigDecimal price);
 
 }
