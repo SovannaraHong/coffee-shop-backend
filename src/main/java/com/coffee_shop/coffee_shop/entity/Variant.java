@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProductVariant extends CreatedAuditable {
+public class Variant extends CreatedAuditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

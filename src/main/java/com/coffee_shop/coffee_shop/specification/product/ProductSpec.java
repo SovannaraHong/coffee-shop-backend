@@ -20,7 +20,8 @@ public record ProductSpec(ProductFilter filter) implements Specification<Product
             predicates.add(cb.equal(product.get("id"), filter.getId()));
         }
         if (Objects.nonNull(filter.getName())) {
-            predicates.add(cb.like(product.get("name"), "%" + filter.getName() + "%"));
+            predicates.add(cb.like(cb.lower(product.get("name")),
+                    "%" + filter.getName().toLowerCase() + "%"));
         }
         return cb.and(predicates.toArray(Predicate[]::new));
     }
