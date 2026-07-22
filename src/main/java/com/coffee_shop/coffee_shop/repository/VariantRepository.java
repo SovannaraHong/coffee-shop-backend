@@ -10,7 +10,6 @@ import java.util.Optional;
 
 @Repository
 public interface VariantRepository extends JpaRepository<Variant, Long>, JpaSpecificationExecutor<Variant> {
-    boolean existsByName(String name);
 
     Optional<Variant> findByNameIgnoreCase(String name);
 

@@ -71,5 +71,10 @@ public class VariantController {
         );
     }
 
+    @PutMapping("/{id}/update")
+    public ResponseEntity<VariantResponse> update(@PathVariable Long id, @Valid @RequestBody VariantRequest variantRequest) {
+        VariantResponse update = variantService.update(id, variantRequest);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(update);
+    }
 
 }

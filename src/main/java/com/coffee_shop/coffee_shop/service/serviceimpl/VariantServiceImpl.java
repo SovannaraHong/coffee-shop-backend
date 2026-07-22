@@ -52,9 +52,23 @@ public class VariantServiceImpl implements VariantService {
     }
 
     @Override
+    @Transactional
     public VariantResponse update(Long id, VariantRequest variantRequest) {
+        Variant variant = variantRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
 
-        return null;
+        Long productId = variant.getProduct().getId();
+
+        if (!variant.getName().equalsIgnoreCase(variantRequest.getName())) {
+            Optional<Variant> existing = variantRepository
+                    .findByProductIdAndNameIgnoreCase(productId, variantRequest.getName());
+            if (existing.isPresent()) {
+                throw BadRequestException.alreadyExits("Variant", existing.get().getId(), variantRequest.getName());
+            }
+        }
+
+        variantMapper.updateEntity(variant, variantRequest); // apply new values — this was missing
+        return variantMapper.toResponse(variantRepository.save(variant));
     }
 
     @Override
