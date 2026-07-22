@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,9 +30,9 @@ import java.util.Optional;
 public class VariantServiceImpl implements VariantService {
 
     private final VariantRepository variantRepository;
-    private final ProductService productService;
     private final ProductRepository productRepository;
     private final VariantMapper variantMapper;
+    private final ProductService productService;
 
     @Override
     @Transactional
@@ -51,9 +52,23 @@ public class VariantServiceImpl implements VariantService {
     }
 
     @Override
+    @Transactional
     public VariantResponse update(Long id, VariantRequest variantRequest) {
+        Variant variant = variantRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
 
-        return null;
+        Long productId = variant.getProduct().getId();
+
+        if (!variant.getName().equalsIgnoreCase(variantRequest.getName())) {
+            Optional<Variant> existing = variantRepository
+                    .findByProductIdAndNameIgnoreCase(productId, variantRequest.getName());
+            if (existing.isPresent()) {
+                throw BadRequestException.alreadyExits("Variant", existing.get().getId(), variantRequest.getName());
+            }
+        }
+
+        variantMapper.updateEntity(variant, variantRequest); // apply new values — this was missing
+        return variantMapper.toResponse(variantRepository.save(variant));
     }
 
     @Override
@@ -88,7 +103,9 @@ public class VariantServiceImpl implements VariantService {
 
     @Override
     public List<VariantResponse> findByProductId(Long productId) {
-        return List.of();
+        Product byId = productService.findById(productId);
+        return variantRepository
+                .findByProductId(byId.getId()).stream().map(variantMapper::toResponse).toList();
     }
 
     @Override
@@ -103,16 +120,25 @@ public class VariantServiceImpl implements VariantService {
 
     @Override
     public VariantResponse changeStatus(Long id) {
-        VariantResponse byId = findById(id);
-        byId.setIsActive(!byId.getIsActive());
-        return byId;
+
+        Variant variant = variantRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
+
+        variant.setIsActive(!variant.getIsActive());
+
+        Variant saved = variantRepository.save(variant);
+
+        return variantMapper.toResponse(saved);
     }
 
     @Override
-    public VariantResponse updatePrice(Long id, VariantRequest variantRequest) {
-        VariantResponse byId = findById(id);
-        byId.setPrice(variantRequest.getPrice());
+    public VariantResponse updatePrice(Long id, BigDecimal price) {
+        Variant variant = variantRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
 
-        return byId;
+        variant.setPrice(price);
+        Variant save = variantRepository.save(variant);
+
+        return variantMapper.toResponse(save);
     }
 }
