@@ -17,12 +17,12 @@ import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.specification.product.ProductFilter;
 import com.coffee_shop.coffee_shop.specification.product.ProductSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -104,6 +104,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAll() {
         return productRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
                 .map(productMapper::toResponse)
@@ -111,6 +112,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getPagination(Map<String, String> params) {
         ProductFilter productFilter = new ProductFilter();
         if (params.containsKey("name")) productFilter.setName(params.get("name"));
@@ -122,6 +124,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Product findById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
