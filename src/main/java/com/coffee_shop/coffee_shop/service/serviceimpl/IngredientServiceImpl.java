@@ -157,12 +157,11 @@ public class IngredientServiceImpl implements IngredientService {
         return ingredientMapping.toResponse(ingredientId);
     }
 
-    //TODO FIX BUG ON ADD
     @Override
     public IngredientResponse adjustStock(Long id, StockSetRequest request) {
         Ingredient ingredientById = getIngredientById(id);
         BigDecimal oldStock = ingredientById.getQuantityInStock();
-        BigDecimal newStock = request.getNewQuantity();
+        BigDecimal newStock = ingredientById.getQuantityInStock().subtract(request.getNewQuantity());
 
         ingredientById.setQuantityInStock(request.getNewQuantity());
         Ingredient saved = ingredientRepository.save(ingredientById);
@@ -173,7 +172,7 @@ public class IngredientServiceImpl implements IngredientService {
                 .oldQuantity(oldStock)
                 .newQuantity(newStock)
                 .notes(request.getNotes())
-                .createdAt(LocalDateTime.now())
+//                .createdAt(LocalDateTime.now())
                 .build();
         stockAdjustmentRepository.save(stockAdjustment);
 

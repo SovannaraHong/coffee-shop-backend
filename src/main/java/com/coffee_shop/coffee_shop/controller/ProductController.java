@@ -9,7 +9,6 @@ import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.service.S3Service;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +29,8 @@ public class ProductController {
 
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
-        Page<ProductResponse> pagination = productService.getPagination(params);
-        return ResponseEntity.ok().body(new PageDTO<>(pagination));
+        PageDTO<ProductResponse> pagination = productService.getPagination(params);
+        return ResponseEntity.ok().body(pagination);
 
     }
 

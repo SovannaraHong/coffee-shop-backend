@@ -1,5 +1,6 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
+import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
 import com.coffee_shop.coffee_shop.dto.request.VariantRequest;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
@@ -17,7 +18,11 @@ import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.specification.product.ProductFilter;
 import com.coffee_shop.coffee_shop.specification.product.ProductSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
+import com.coffee_shop.coffee_shop.util.ProductCacheKeyGenerator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -27,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
@@ -37,6 +43,8 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final VariantRepository variantRepository;
 
+    private final CacheManager cacheManager;
+    private final ProductCacheKeyGenerator keyGenerator;
 
     @Override
     @Transactional
@@ -113,14 +121,32 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProductResponse> getPagination(Map<String, String> params) {
+    public PageDTO<ProductResponse> getPagination(Map<String, String> params) {
+        String key = keyGenerator.generate(params);
+        Cache cache = cacheManager.getCache("productPagination");
+        if (cache != null) {
+            PageDTO<ProductResponse> cached = cache.get(key, PageDTO.class);
+            if (cached != null) {
+                log.info("✅ CACHE HIT: {}", key);
+                return cached;
+            }
+        }
+        log.info(" CACHE MISS: {}", key);
+
         ProductFilter productFilter = new ProductFilter();
         if (params.containsKey("name")) productFilter.setName(params.get("name"));
         if (params.containsKey("id")) productFilter.setId(Long.parseLong(params.get("id")));
         ProductSpec productSpec = new ProductSpec(productFilter);
         Pageable pageable = PageUtil.getPageable(params);
-        return productRepository.findAll(productSpec, pageable).map(productMapper::toResponse);
+        Page<ProductResponse> page = productRepository.findAll(productSpec, pageable).map(productMapper::toResponse);
 
+        PageDTO<ProductResponse> result = new PageDTO<>(page);
+
+        if (cache != null) {
+            cache.put(key, result);
+        }
+
+        return result;
     }
 
     @Override

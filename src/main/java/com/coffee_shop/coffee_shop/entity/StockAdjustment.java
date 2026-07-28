@@ -5,13 +5,12 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "stock_adjustments")
 @Data
 @Builder
-public class StockAdjustment {
+public class StockAdjustment extends CreatedAuditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,11 +29,5 @@ public class StockAdjustment {
     @Column(nullable = false, length = 255)
     private String notes;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
 }
