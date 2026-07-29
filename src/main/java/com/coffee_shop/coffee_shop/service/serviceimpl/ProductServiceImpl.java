@@ -91,6 +91,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(saved);
     }
 
+    @Transactional
     @Override
     public ProductResponse update(Long id, ProductRequest productRequest) {
         Product proId = findById(id);
@@ -157,6 +158,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @Transactional
     @Override
     public void delete(Long id) {
         Product byId = findById(id);
@@ -173,6 +175,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(product));
     }
 
+    @Transactional
     @Override
     public ProductResponse changeProductStatus(Long id) {
         Product byId = findById(id);
@@ -180,6 +183,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(byId));
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findProductByCategoryId(Long id) {
 
@@ -195,6 +199,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findFeaturedProducts() {
         List<ProductResponse> result = productRepository
@@ -211,6 +216,7 @@ public class ProductServiceImpl implements ProductService {
         return result;
     }
 
+    @Transactional(readOnly = true)
     //TODO WITH SELL TABLE
     @Override
     public List<ProductResponse> findBestSellingProducts() {
@@ -219,6 +225,7 @@ public class ProductServiceImpl implements ProductService {
         return List.of();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findNewestProducts() {
         return productRepository

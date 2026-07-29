@@ -29,7 +29,10 @@ public interface IngredientService {
 
     IngredientResponse decreaseStock(Long id, StockAdjustRequest request);
 
+    //change stock like wrong import
     IngredientResponse adjustStock(Long id, StockSetRequest request);
+
+//    IngredientResponse importStock(Long id, StockImportRequest request);
 
     List<IngredientResponse> checkLowStock();
 

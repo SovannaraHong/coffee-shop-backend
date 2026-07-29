@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryMapper categoryMapper;
     private final CategoryDetailMapper categoryDetailMapper;
 
+    @Transactional(readOnly = true)
     @Override
     public List<CategoryResponse> getCategories() {
 
@@ -40,12 +42,14 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryMapper.toResponseList(allCategory);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Category findById(Long id) {
         return categoryRepository.findById(id).
                 orElseThrow(() -> ResourceNotFoundException.notFoundException("Category", id));
     }
 
+    @Transactional
     @Override
     public Category createCategory(Category category) {
 
@@ -57,7 +61,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.save(category);
     }
 
-
+    @Transactional
     @Override
     public Category update(Long id, CategoryRequest request) {
         Category categoryById = findById(id);
@@ -73,12 +77,14 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.save(categoryById);
     }
 
+    @Transactional
     @Override
     public void delete(Long id) {
         Category byId = findById(id);
         categoryRepository.delete(byId);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Page<CategoryResponse> getCategoriesPageable(Map<String, String> params) {
         CategoryFilter filter = new CategoryFilter();
@@ -90,6 +96,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.findAll(categorySpec, pageable).map(categoryMapper::toResponse);
     }
 
+    @Transactional
     @Override
     public CategoryResponse updateImage(Long id, String imageUrl) {
         Category categoryId = findById(id);
@@ -100,6 +107,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     }
 
+    @Transactional(readOnly = true)
     //TODO CHECK PRODUCT
     @Override
     public List<CategoryDetailResponse> findCategoryDetail(Long id) {
@@ -108,6 +116,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     }
 
+    @Transactional
     @Override
     public CategoryResponse changeCategoryStatus(Long id) {
         Category category = findById(id);
@@ -115,6 +124,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryMapper.toResponse(categoryRepository.save(category));
     }
 
+    @Transactional
     @Override
     public List<CategoryResponse> findActiveCategories() {
         return categoryRepository.findAll().stream().filter(Category::getIsActive).map(categoryMapper::toResponse).toList();

@@ -81,6 +81,13 @@ public class IngredientController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+//    @PatchMapping("/{id}/import-stock")
+//    public ResponseEntity<IngredientResponse> importStock(
+//            @PathVariable Long id,
+//            @Valid @RequestBody StockImportRequest request) {
+//        return ResponseEntity.ok(ingredientService.importStock(id, request));
+//    }
+
     @GetMapping("/low-stock")
     public ResponseEntity<List<IngredientResponse>> getLowStock() {
         return ResponseEntity.ok().body(ingredientService.checkLowStock());
