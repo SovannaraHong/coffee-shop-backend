@@ -1,8 +1,10 @@
 package com.coffee_shop.coffee_shop.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
@@ -10,6 +12,8 @@ import java.math.BigDecimal;
 @Table(name = "stock_adjustments")
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class StockAdjustment extends CreatedAuditable {
 
     @Id
@@ -25,6 +29,9 @@ public class StockAdjustment extends CreatedAuditable {
 
     @Column(nullable = false)
     private BigDecimal newQuantity;
+
+    @Column(name = "current_stock")
+    private BigDecimal currentStock;
 
     @Column(nullable = false, length = 255)
     private String notes;
