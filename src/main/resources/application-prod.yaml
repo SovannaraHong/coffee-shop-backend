@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate    # never 'update' in prod — schema changes should be deliberate
+    show-sql: false          # don't spam prod logs with SQL
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.OracleDialect
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: true         # ElastiCache typically requires TLS in-transit
+
+springdoc:
+  swagger-ui:
+    enabled: false           # usually disable Swagger UI in prod, or protect it
+
+aws:
+  access-key: ${AWS_ACCESS_KEY_ID_COFFEE}
+  secret-key: ${AWS_SECRET_ACCESS_KEY_COFFEE}
+  region: ${AWS_REGION_COFFEE}
+  bucket-name: ${AWS_BUCKET_NAME_COFFEE}
