@@ -1,6 +1,6 @@
 package com.coffee_shop.coffee_shop.entity;
 
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
 

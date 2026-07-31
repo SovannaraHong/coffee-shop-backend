@@ -1,6 +1,6 @@
 package com.coffee_shop.coffee_shop.dto.response;
 
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -3,7 +3,7 @@ package com.coffee_shop.coffee_shop.controller;
 import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.response.TransactionResponse;
 import com.coffee_shop.coffee_shop.service.InventoryTransactionService;
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;

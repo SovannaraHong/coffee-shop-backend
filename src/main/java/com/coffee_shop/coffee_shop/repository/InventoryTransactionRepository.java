@@ -1,7 +1,7 @@
 package com.coffee_shop.coffee_shop.repository;
 
 import com.coffee_shop.coffee_shop.entity.InventoryTransaction;
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
