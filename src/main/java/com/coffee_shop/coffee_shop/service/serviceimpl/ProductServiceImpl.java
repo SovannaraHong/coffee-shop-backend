@@ -1,5 +1,6 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
+import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
 import com.coffee_shop.coffee_shop.dto.request.VariantRequest;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
@@ -17,16 +18,21 @@ import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.specification.product.ProductFilter;
 import com.coffee_shop.coffee_shop.specification.product.ProductSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
-import jakarta.transaction.Transactional;
+import com.coffee_shop.coffee_shop.util.ProductCacheKeyGenerator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
@@ -37,6 +43,8 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final VariantRepository variantRepository;
 
+    private final CacheManager cacheManager;
+    private final ProductCacheKeyGenerator keyGenerator;
 
     @Override
     @Transactional
@@ -83,6 +91,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(saved);
     }
 
+    @Transactional
     @Override
     public ProductResponse update(Long id, ProductRequest productRequest) {
         Product proId = findById(id);
@@ -104,6 +113,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAll() {
         return productRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
                 .map(productMapper::toResponse)
@@ -111,23 +121,44 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Page<ProductResponse> getPagination(Map<String, String> params) {
+    @Transactional(readOnly = true)
+    public PageDTO<ProductResponse> getPagination(Map<String, String> params) {
+        String key = keyGenerator.generate(params);
+        Cache cache = cacheManager.getCache("productPagination");
+        if (cache != null) {
+            PageDTO<ProductResponse> cached = cache.get(key, PageDTO.class);
+            if (cached != null) {
+                log.info("✅ CACHE HIT: {}", key);
+                return cached;
+            }
+        }
+        log.info(" CACHE MISS: {}", key);
+
         ProductFilter productFilter = new ProductFilter();
         if (params.containsKey("name")) productFilter.setName(params.get("name"));
         if (params.containsKey("id")) productFilter.setId(Long.parseLong(params.get("id")));
         ProductSpec productSpec = new ProductSpec(productFilter);
         Pageable pageable = PageUtil.getPageable(params);
-        return productRepository.findAll(productSpec, pageable).map(productMapper::toResponse);
+        Page<ProductResponse> page = productRepository.findAll(productSpec, pageable).map(productMapper::toResponse);
 
+        PageDTO<ProductResponse> result = new PageDTO<>(page);
+
+        if (cache != null) {
+            cache.put(key, result);
+        }
+
+        return result;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Product findById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
 
     }
 
+    @Transactional
     @Override
     public void delete(Long id) {
         Product byId = findById(id);
@@ -144,6 +175,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(product));
     }
 
+    @Transactional
     @Override
     public ProductResponse changeProductStatus(Long id) {
         Product byId = findById(id);
@@ -151,6 +183,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(byId));
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findProductByCategoryId(Long id) {
 
@@ -166,6 +199,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findFeaturedProducts() {
         List<ProductResponse> result = productRepository
@@ -182,6 +216,8 @@ public class ProductServiceImpl implements ProductService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    //TODO WITH SELL TABLE
     @Override
     public List<ProductResponse> findBestSellingProducts() {
         List<Product> all = productRepository.findAll();
@@ -189,6 +225,7 @@ public class ProductServiceImpl implements ProductService {
         return List.of();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findNewestProducts() {
         return productRepository

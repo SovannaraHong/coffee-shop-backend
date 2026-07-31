@@ -1,14 +1,16 @@
 package com.coffee_shop.coffee_shop.dto;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
 
 @Data
+@NoArgsConstructor
 public class PageDTO<T> {
-    private final List<T> list;
-    private final PaginationDTO paginationDTO;
+    private List<T> list;
+    private PaginationDTO paginationDTO;
 
     public PageDTO(Page<T> page) {
         this.list = page.getContent();
@@ -23,5 +25,4 @@ public class PageDTO<T> {
                 .totalPage(page.getTotalPages())
                 .build();
     }
-
 }

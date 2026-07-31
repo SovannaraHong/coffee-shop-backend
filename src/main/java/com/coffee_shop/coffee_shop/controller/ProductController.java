@@ -7,13 +7,14 @@ import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.service.S3Service;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController()
@@ -28,8 +29,8 @@ public class ProductController {
 
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
-        Page<ProductResponse> pagination = productService.getPagination(params);
-        return ResponseEntity.ok().body(new PageDTO<>(pagination));
+        PageDTO<ProductResponse> pagination = productService.getPagination(params);
+        return ResponseEntity.ok().body(pagination);
 
     }
 
@@ -56,6 +57,55 @@ public class ProductController {
         ProductResponse response = productService.updateImage(id, url);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ProductResponse>> getAll() {
+        return ResponseEntity.ok().body(productService.getAll());
+    }
+
+    @PutMapping("/{id}/update")
+    public ResponseEntity<ProductResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.update(id, request));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponse> getById(@PathVariable Long id) {
+        Product proId = productService.findById(id);
+        ProductResponse response = productMapper.toResponse(proId);
+        return ResponseEntity.ok().body(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        productService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ProductResponse> changeStatus(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
+                productService.changeProductStatus(id)
+
+        );
+    }
+
+    @GetMapping("/{id}/category")
+    public ResponseEntity<List<ProductResponse>> findProductByCategoryId(@PathVariable Long id) {
+        return ResponseEntity.ok().body(productService.findProductByCategoryId(id));
+    }
+
+    @GetMapping("/feature")
+    public ResponseEntity<List<ProductResponse>> findFeatureProducts() {
+        return ResponseEntity.ok().body(productService.findFeaturedProducts());
+    }
+
+    @GetMapping("/new")
+    public ResponseEntity<List<ProductResponse>> findNewestProducts() {
+        return ResponseEntity.ok().body(productService.findNewestProducts());
     }
 
 
