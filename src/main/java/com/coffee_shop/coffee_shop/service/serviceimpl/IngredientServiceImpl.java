@@ -19,7 +19,7 @@ import com.coffee_shop.coffee_shop.service.IngredientService;
 import com.coffee_shop.coffee_shop.specification.ingredient.IngredientFilter;
 import com.coffee_shop.coffee_shop.specification.ingredient.IngredientSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

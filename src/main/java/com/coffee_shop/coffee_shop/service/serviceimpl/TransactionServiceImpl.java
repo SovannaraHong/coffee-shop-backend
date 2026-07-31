@@ -10,7 +10,7 @@ import com.coffee_shop.coffee_shop.service.InventoryTransactionService;
 import com.coffee_shop.coffee_shop.specification.transaction.TransactionFilter;
 import com.coffee_shop.coffee_shop.specification.transaction.TransactionSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
-import com.coffee_shop.coffee_shop.util.TransactionType;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

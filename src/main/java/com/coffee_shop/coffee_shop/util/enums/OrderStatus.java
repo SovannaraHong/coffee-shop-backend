@@ -1,4 +1,4 @@
-package com.coffee_shop.coffee_shop.util;
+package com.coffee_shop.coffee_shop.util.enums;
 
 public enum OrderStatus {
     PENDING,
