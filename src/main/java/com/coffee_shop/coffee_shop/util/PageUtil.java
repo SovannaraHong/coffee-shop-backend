@@ -33,7 +33,8 @@ public interface PageUtil {
         if (params.containsKey(DEFAULT_LIMIT)) {
             size = Integer.parseInt(params.get(DEFAULT_LIMIT));
         }
-        return PageRequest.of(page - 1, size, direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending());
+        return PageRequest.of(page - 1, size,
+                direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending());
 
     }
 }

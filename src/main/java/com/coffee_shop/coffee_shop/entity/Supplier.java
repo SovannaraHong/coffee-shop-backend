@@ -8,7 +8,13 @@ import java.util.Set;
 
 @EqualsAndHashCode(callSuper = true)
 @Entity
-@Table(name = "supplier")
+@Table(
+        name = "supplier",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_supplier_email", columnNames = "email"),
+                @UniqueConstraint(name = "uk_supplier_phone", columnNames = "phone")
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
