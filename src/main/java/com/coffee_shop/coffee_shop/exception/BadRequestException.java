@@ -13,6 +13,10 @@ public class BadRequestException extends RuntimeException {
         );
     }
 
+    public static BadRequestException alreadyExits(String entity, String name) {
+        return new BadRequestException(entity + " with name = " + name + " already exists");
+    }
+
     public static BadRequestException insufficientStock(String ingredientName, BigDecimal available, BigDecimal requested) {
         return new BadRequestException(
                 String.format("Insufficient stock for '%s': available %.2f, requested %.2f",

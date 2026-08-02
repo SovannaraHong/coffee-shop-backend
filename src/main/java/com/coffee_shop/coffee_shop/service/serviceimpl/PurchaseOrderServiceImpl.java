@@ -8,6 +8,7 @@ import com.coffee_shop.coffee_shop.entity.Ingredient;
 import com.coffee_shop.coffee_shop.entity.PurchaseOrder;
 import com.coffee_shop.coffee_shop.entity.PurchaseOrderDetail;
 import com.coffee_shop.coffee_shop.entity.Supplier;
+import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.PurchaseOrderMapper;
 import com.coffee_shop.coffee_shop.repository.IngredientRepository;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +47,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional
     public PurchaseOrderResponse createPurchaseOrder(PurchaseOrderCreateRequest request) {
+        if (request.getDetails() == null || request.getDetails().isEmpty()) {
+            throw new BadRequestException("Purchase order must have at least one detail line");
+        }
+
         Supplier supplier = supplierRepository.findById(request.getSupplierId())
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Supplier", request.getSupplierId()));
 
@@ -79,6 +85,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
 
         if (request.getDetails() != null) {
+            if (request.getDetails().isEmpty()) {
+                throw new BadRequestException("Purchase order must have at least one detail line");
+            }
             // orphanRemoval = true on the entity means clearing + re-adding deletes old rows correctly
             purchaseOrder.getPurchaseOrderDetails().clear();
             List<PurchaseOrderDetail> details = buildDetails(purchaseOrder, request.getDetails());
@@ -98,20 +107,26 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     public Page<PurchaseOrderResponse> getPagination(Map<String, String> params) {
         PurchaseOrderFilter filter = new PurchaseOrderFilter();
-        if (params.containsKey("id")) {
-            filter.setId(Long.valueOf(params.get("id")));
-        }
-        if (params.containsKey("supplierId")) {
-            filter.setSupplierId(Long.valueOf(params.get("supplierId")));
-        }
-        if (params.containsKey("status")) {
-            filter.setStatus(params.get("status"));
-        }
-        if (params.containsKey("startDate")) {
-            filter.setStartDate(LocalDateTime.parse(params.get("startDate"), DATE_FORMAT));
-        }
-        if (params.containsKey("endDate")) {
-            filter.setEndDate(LocalDateTime.parse(params.get("endDate"), DATE_FORMAT));
+        try {
+            if (params.containsKey("id")) {
+                filter.setId(Long.valueOf(params.get("id")));
+            }
+            if (params.containsKey("supplierId")) {
+                filter.setSupplierId(Long.valueOf(params.get("supplierId")));
+            }
+            if (params.containsKey("status")) {
+                filter.setStatus(params.get("status"));
+            }
+            if (params.containsKey("startDate")) {
+                filter.setStartDate(LocalDateTime.parse(params.get("startDate"), DATE_FORMAT));
+            }
+            if (params.containsKey("endDate")) {
+                filter.setEndDate(LocalDateTime.parse(params.get("endDate"), DATE_FORMAT));
+            }
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid numeric filter value (id / supplierId)");
+        } catch (DateTimeParseException e) {
+            throw new BadRequestException("Invalid date format, expected yyyy-MM-dd HH:mm:ss");
         }
 
         PurchaseOrderSpec spec = new PurchaseOrderSpec(filter);
@@ -150,8 +165,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrder.getStatus() != PurchaseOrderStatus.ORDERED) {
             throw new IllegalStateException("Only ORDERED purchase orders can be received");
         }
-        // TODO: for each detail line, call ingredientService.increaseStock(...)
-        // and create an InventoryTransaction with referenceType = "PURCHASE_ORDER", referenceId = purchaseOrder.getId()
 
         for (PurchaseOrderDetail detail : purchaseOrder.getPurchaseOrderDetails()) {
             StockAdjustRequest stockRequest = new StockAdjustRequest();
@@ -197,6 +210,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private BigDecimal calculateTotal(List<PurchaseOrderDetail> details) {
         return details.stream()
                 .map(PurchaseOrderDetail::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);//find final total
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
