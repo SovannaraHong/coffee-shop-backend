@@ -56,3 +56,8 @@ aws:
   secret-key: ${AWS_SECRET_ACCESS_KEY_COFFEE}
   region: ${AWS_REGION_COFFEE}
   bucket-name: ${AWS_BUCKET_NAME_COFFEE}
+
+khqr:
+  profile-id: ${KHQR_PROFILE_ID}
+  secret-key: ${KHQR_SECRET_KEY}
+  bakong-receiver-id: ${KHQR_BAKONG_RECEIVER_ID}
