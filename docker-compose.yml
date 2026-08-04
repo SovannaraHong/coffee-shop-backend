@@ -1,0 +1,16 @@
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:latest
+    container_name: oracle-db
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    environment:
+      ORACLE_PASSWORD: oracle123
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    restart: always
+
+volumes:
+  oracle-data:
+    external: true
