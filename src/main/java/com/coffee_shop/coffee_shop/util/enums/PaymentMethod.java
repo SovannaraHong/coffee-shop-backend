@@ -4,5 +4,6 @@ public enum PaymentMethod {
     CASH,
     ABA_PAY,
     CARD,
-    WING
+    WING,
+    KHQR
 }
