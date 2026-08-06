@@ -36,6 +36,8 @@ public class Customer extends CreatedAuditable {
     @Column(length = 20)
     private String phone;
 
+
+    //@Builder.Default is a Lombok annotation that makes a field's default value work correctly when using
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false, length = 20)
     @Builder.Default
