@@ -32,6 +32,8 @@ public class Category {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    //CascadeType.all mean Apply Category operations to its Products. make when category  save product too
+    // orphanRemoval If a Product is removed from the Category collection, delete it from database.
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Product> products;
 
