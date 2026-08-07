@@ -16,6 +16,7 @@ import java.util.List;
 @JsonPropertyOrder({
         "id",
         "variantId",
+        "productName",
         "variantName",
         "quantity",
         "unitPrice",
@@ -23,9 +24,9 @@ import java.util.List;
         "addons"
 })
 public class OrderDetailResponse {
-
     private Long id;
     private Long variantId;
+    private String productName;
     private String variantName;
     private Integer quantity;
     private BigDecimal unitPrice;
