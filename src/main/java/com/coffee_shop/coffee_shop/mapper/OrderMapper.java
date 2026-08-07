@@ -15,10 +15,12 @@ public interface OrderMapper {
 
     @Mapping(source = "customer.id", target = "customerId")
     @Mapping(target = "customerName", expression = "java(fullName(order.getCustomer()))")
+
     @Mapping(source = "createdAt", target = "orderDate")
     @Mapping(source = "orderDetails", target = "details")
     OrderResponse toResponse(Order order);
 
+    @Mapping(source = "productVariant.product.name", target = "productName")
     @Mapping(source = "productVariant.id", target = "variantId")
     @Mapping(source = "productVariant.name", target = "variantName")
     @Mapping(source = "orderDetailAddons", target = "addons")

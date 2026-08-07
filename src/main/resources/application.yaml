@@ -61,3 +61,7 @@ khqr:
   profile-id: ${KHQR_PROFILE_ID}
   secret-key: ${KHQR_SECRET_KEY}
   bakong-receiver-id: ${KHQR_BAKONG_RECEIVER_ID}
+
+telegram:
+  bot-token: 8884838819:AAFKp3W0L6FlAeQSVYB6zcszZDZNhK044So
+  chat-id: "-1004465830181"
