@@ -11,6 +11,7 @@ import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.OrderMapper;
 import com.coffee_shop.coffee_shop.repository.*;
 import com.coffee_shop.coffee_shop.service.OrderService;
+import com.coffee_shop.coffee_shop.service.TelegramNotificationService;
 import com.coffee_shop.coffee_shop.specification.Order.OrderFilter;
 import com.coffee_shop.coffee_shop.specification.Order.OrderSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
@@ -38,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final RecipeRepository recipeRepository;
     private final IngredientRepository ingredientRepository;
     private final OrderMapper orderMapper;
+    private final TelegramNotificationService telegramNotificationService;
 
     private static final DateTimeFormatter ORDER_NUMBER_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -71,6 +73,7 @@ public class OrderServiceImpl implements OrderService {
         order.setFinalAmount(totalAmount.subtract(order.getDiscountAmount()).add(order.getTaxAmount()));
 
         Order saved = orderRepository.save(order);
+        telegramNotificationService.sendMessage(buildOrderTelegramMessage(saved, customer));
         return orderMapper.toResponse(saved);
     }
 
@@ -330,5 +333,52 @@ public class OrderServiceImpl implements OrderService {
         }
         ingredient.setQuantityInStock(ingredient.getQuantityInStock().subtract(totalNeeded));
         ingredientRepository.save(ingredient);
+    }
+
+
+    private String buildOrderTelegramMessage(Order saved, Customer customer) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("🛍️ *New Order Received!*\n");
+        sb.append("━━━━━━━━━━━━━━━━\n");
+        sb.append("👤 *Customer Info*\n");
+        sb.append("🗿 Name: ").append(customer.getFirstName()).append(" ").append(customer.getLastName()).append("\n");
+        if (customer.getEmail() != null) {
+            sb.append("📧 Email: `").append(customer.getEmail()).append("`\n");
+        }
+        if (customer.getPhone() != null) {
+            sb.append("📲 Phone: `").append(customer.getPhone()).append("`\n");
+        }
+        sb.append("━━━━━━━━━━━━━━━━\n\n");
+
+        sb.append("🛒 *ORDER ITEMS*\n");
+        sb.append("┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n");
+
+        for (OrderDetail detail : saved.getOrderDetails()) {
+            sb.append("🏷️ ").append(detail.getProductVariant().getProduct().getName())
+                    .append(" (").append(detail.getProductVariant().getName()).append(")\n");
+            sb.append("💰 Price: `$").append(detail.getUnitPrice()).append("`\n");
+            sb.append("🔢 Qty: `").append(detail.getQuantity()).append("`\n");
+            sb.append("🧾 Subtotal: `$").append(detail.getSubtotal()).append("`\n");
+
+            if (!detail.getOrderDetailAddons().isEmpty()) {
+                sb.append("   ➕ Add-ons:\n");
+                for (OrderDetailAddon addon : detail.getOrderDetailAddons()) {
+                    sb.append("      • ").append(addon.getAddon().getName())
+                            .append(" x").append(addon.getQuantity())
+                            .append(" — $").append(addon.getSubtotal()).append("\n");
+                }
+            }
+            sb.append("┄┄┄┄┄┄┄┄┄┄┄┄\n");
+        }
+
+        sb.append("\n💵 *Total:* `$").append(saved.getFinalAmount()).append("`\n");
+        if (saved.getNote() != null && !saved.getNote().isBlank()) {
+            sb.append("📝 Note: ").append(saved.getNote()).append("\n");
+        }
+        sb.append("🧾 Order #: `").append(saved.getOrderNumber()).append("`\n");
+        sb.append("🕐 Order just placed");
+
+        return sb.toString();
     }
 }
