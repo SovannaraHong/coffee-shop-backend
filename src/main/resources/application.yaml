@@ -42,6 +42,17 @@ spring:
   devtools:
     restart:
       enabled: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: rapewpew372@gmail.com
+    password: tikxtgdkjputuheo
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -65,3 +76,9 @@ khqr:
 telegram:
   bot-token: 8884838819:AAFKp3W0L6FlAeQSVYB6zcszZDZNhK044So
   chat-id: "-1004465830181"
+
+
+jwt:
+  secret: change-this-to-a-long-random-secret-at-least-32-characters-long
+  expiration-ms: 86400000
+
