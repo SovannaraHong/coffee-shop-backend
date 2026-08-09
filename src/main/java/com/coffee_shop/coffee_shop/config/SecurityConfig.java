@@ -28,6 +28,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/orders/**").permitAll()
                                 .requestMatchers("/api/addons/**").permitAll() // menu browsing, adjust as needed
                                 .requestMatchers("/api/products/**").permitAll()
+                                .requestMatchers("/api/payments/**").permitAll()
                                 .requestMatchers(
                                         "/",
                                         "/index.html",

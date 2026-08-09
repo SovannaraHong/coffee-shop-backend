@@ -1,18 +1,12 @@
 spring:
   application:
     name: coffee-shop
-  
-  #  datasource:
-  #    url: jdbc:postgresql://localhost:5432/coffee_shop
-  #    username: admin
-  #    password: admin@123
-  #    driver-class-name: org.postgresql.Driver
+
   datasource:
-    #    url: jdbc:oracle:thin:@localhost:1521/orcl
-    url: jdbc:oracle:thin:@localhost:1521/FREEPDB1
-    username: coffee_shop_app
-    password: "coffeePka123"
-    driver-class-name: oracle.jdbc.OracleDriver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER}
 
   jpa:
     hibernate:
@@ -22,37 +16,29 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.OracleDialect
-  #  jpa:
-  #    hibernate:
-  #      ddl-auto: validate
-  #    show-sql: true
-  #    properties:
-  #      hibernate:
-  #        format_sql: true
-  #        dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  #  liquibase:
-  #    enabled: true
-  #    change-log: classpath:db/changelog/db.changelog-master.yaml
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+
   devtools:
     restart:
       enabled: false
+
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: rapewpew372@gmail.com
-    password: tikxtgdkjputuheo
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -61,24 +47,21 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-
 aws:
   access-key: ${AWS_ACCESS_KEY_ID_COFFEE}
   secret-key: ${AWS_SECRET_ACCESS_KEY_COFFEE}
   region: ${AWS_REGION_COFFEE}
   bucket-name: ${AWS_BUCKET_NAME_COFFEE}
 
-khqr:
-  profile-id: ${KHQR_PROFILE_ID}
-  secret-key: ${KHQR_SECRET_KEY}
-  bakong-receiver-id: ${KHQR_BAKONG_RECEIVER_ID}
+cutluy:
+  api:
+    key: ${CUTLUY_API_KEY}
+  base-url: https://cutluy.com/v1
 
 telegram:
-  bot-token: 8884838819:AAFKp3W0L6FlAeQSVYB6zcszZDZNhK044So
-  chat-id: "-1004465830181"
-
+  bot-token: ${TELEGRAM_BOT_TOKEN}
+  chat-id: ${TELEGRAM_CHAT_ID}
 
 jwt:
-  secret: change-this-to-a-long-random-secret-at-least-32-characters-long
-  expiration-ms: 86400000
-
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
