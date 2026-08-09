@@ -1,0 +1,18 @@
+coffee_shop_notify        name
+8884838819:AAFKp3W0L6FlAeQSVYB6zcszZDZNhK044So token
+@coffee_shop_notify_bot username
+t.me/coffeeshop_app group username
+
+
+https://api.telegram.org/bot<TOKEN>/getUpdates
+
+https://api.telegram.org/bot8884838819:AAFKp3W0L6FlAeQSVYB6zcszZDZNhK044So/getUpdates
+
+
+
+tikx tgdk jput uheo
+
+
+
+cut luy
+ck_live_D9-pJWSJ6ff8iCitZ8CBxmE-osWt8tvZ
