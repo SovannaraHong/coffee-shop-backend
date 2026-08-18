@@ -39,7 +39,7 @@ public class CutLuyClient {
      * so retries of the same logical payment reuse the same key instead of creating duplicates.
      */
 
-    //This method is the actual part that sends the payment request from your Spring Boot backend to CutLuy.
+    // This method is the actual part that sends the payment request from your Spring Boot backend to CutLuy.
     public CutLuyPaymentResponse createPayment(BigDecimal amount, String referenceId) {
         HttpHeaders headers = buildHeaders();
         //Important: the key should be unique for each payment operation,
