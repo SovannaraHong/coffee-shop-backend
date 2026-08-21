@@ -12,8 +12,8 @@ import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.CustomerMapper;
 import com.coffee_shop.coffee_shop.repository.CustomerRepository;
 import com.coffee_shop.coffee_shop.service.CustomerService;
+import com.coffee_shop.coffee_shop.service.JwtService;
 import com.coffee_shop.coffee_shop.service.OtpService;
-import com.coffee_shop.coffee_shop.util.JwtUtil;
 import com.coffee_shop.coffee_shop.util.enums.AuthProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +28,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
-    private final JwtUtil jwtUtil;
-
+    private final JwtService jwtService; // was JwtUtil — now unified
 
     @Transactional
     @Override
@@ -65,7 +64,6 @@ public class CustomerServiceImpl implements CustomerService {
         otpService.verifyOtp(request.getEmail(), request.getCode());
         customer.setIsVerified(true);
         customerRepository.save(customer);
-
     }
 
     @Transactional(readOnly = true)
@@ -82,11 +80,11 @@ public class CustomerServiceImpl implements CustomerService {
         if (!customer.getIsVerified()) {
             throw new BadRequestException("Please verify your email before logging in");
         }
-
         if (!customer.getIsActive()) {
             throw new BadRequestException("This account has been deactivated");
         }
-        String token = jwtUtil.generateToken(customer.getId(), customer.getEmail());
+
+        String token = jwtService.generateCustomerToken(customer.getId(), customer.getEmail());
 
         return LoginResponse.builder()
                 .token(token)
