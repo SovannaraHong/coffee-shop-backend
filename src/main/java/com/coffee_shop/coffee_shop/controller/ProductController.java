@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,7 +27,7 @@ public class ProductController {
     private final ProductMapper productMapper;
     private final S3Service s3Service;
 
-
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
         PageDTO<ProductResponse> pagination = productService.getPagination(params);
