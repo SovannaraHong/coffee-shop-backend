@@ -8,13 +8,18 @@ import java.util.List;
 public interface JwtService {
 
     // ---- Staff (access + refresh) ----
-    String generateAccessToken(AuthUser user);
+    String generateAccessToken(AuthUser user, String sessionId, String deviceFingerprint);
 
-    String generateRefreshToken(AuthUser user);
+    String generateRefreshToken(AuthUser user, String sessionId, String deviceFingerprint);
 
     boolean isRefreshToken(String token);
 
     List<String> extractAuthorities(String token);
+
+
+    String extractSessionId(String token);
+
+    String extractDeviceFingerprint(String token);
 
     // ---- Customer (single token, merged in from the old JwtUtil) ----
     String generateCustomerToken(Long customerId, String email);

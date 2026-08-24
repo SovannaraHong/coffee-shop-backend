@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,24 +35,30 @@ public class JwtServiceImpl implements JwtService {
     // ---- Staff ----
 
     @Override
-    public String generateAccessToken(AuthUser user) {
+    public String generateAccessToken(AuthUser user, String sessionId, String deviceFingerprint) {
         List<String> authorities = user.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        return buildToken(user.getUsername(), accessTokenExpirationMs, Map.of(
-                "userId", user.getId(),
-                "type", "STAFF_ACCESS",
-                "authorities", authorities
-        ));
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        claims.put("type", "STAFF_ACCESS");
+        claims.put("authorities", authorities);
+        claims.put("sessionId", sessionId);
+        claims.put("device", deviceFingerprint);
+
+        return buildToken(user.getUsername(), accessTokenExpirationMs, claims);
     }
 
     @Override
-    public String generateRefreshToken(AuthUser user) {
-        return buildToken(user.getUsername(), refreshTokenExpirationMs, Map.of(
-                "userId", user.getId(),
-                "type", "STAFF_REFRESH"
-        ));
+    public String generateRefreshToken(AuthUser user, String sessionId, String deviceFingerprint) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        claims.put("type", "STAFF_REFRESH");
+        claims.put("sessionId", sessionId);
+        claims.put("device", deviceFingerprint);
+
+        return buildToken(user.getUsername(), refreshTokenExpirationMs, claims);
     }
 
     @Override
@@ -63,6 +70,16 @@ public class JwtServiceImpl implements JwtService {
     @SuppressWarnings("unchecked")
     public List<String> extractAuthorities(String token) {
         return (List<String>) extractClaims(token).get("authorities", List.class);
+    }
+
+    @Override
+    public String extractSessionId(String token) {
+        return extractClaims(token).get("sessionId", String.class);
+    }
+
+    @Override
+    public String extractDeviceFingerprint(String token) {
+        return extractClaims(token).get("device", String.class);
     }
 
     // ---- Customer (merged in from the old JwtUtil) ----
