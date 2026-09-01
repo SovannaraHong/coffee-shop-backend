@@ -30,23 +30,51 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
 
+    /*
+    V1 of payment
+     */
+//    @Override
+//    @Transactional
+//    public KhqrPaymentResult createKhqrPayment(Order order, BigDecimal amount) {
+//        CutLuyPaymentResponse cutLuyPayment = cutLuyClient.createPayment(amount, buildReferenceId(order));
+//
+//        Payment payment = Payment.builder()
+//                .order(order)
+//                .method(PaymentMethod.KHQR)
+//                .status(PaymentStatus.PENDING)
+//                .amount(amount)
+//                .transactionRef(cutLuyPayment.id())
+//                .build();
+//
+//        payment = paymentRepository.save(payment);
+//        log.info("Created KHQR payment id={} for orderId={}, cutluyPaymentId={}",
+//                payment.getId(), order.getId(), cutLuyPayment.id());
+//
+//        return new KhqrPaymentResult(
+//                toResponse(payment),
+//                cutLuyPayment.checkout_url(),
+//                cutLuyPayment.qr_string()
+//        );
+//    }
+
     @Override
     @Transactional
     public KhqrPaymentResult createKhqrPayment(Order order, BigDecimal amount) {
-        CutLuyPaymentResponse cutLuyPayment = cutLuyClient.createPayment(amount, buildReferenceId(order));
-
         Payment payment = Payment.builder()
                 .order(order)
                 .method(PaymentMethod.KHQR)
                 .status(PaymentStatus.PENDING)
                 .amount(amount)
-                .transactionRef(cutLuyPayment.id())
                 .build();
+        payment = paymentRepository.save(payment);
 
+        String referenceId = "order_" + order.getId() + "_payment_" + payment.getId();
+        CutLuyPaymentResponse cutLuyPayment = cutLuyClient.createPayment(amount, referenceId);
+        payment.setTransactionRef(cutLuyPayment.id());
         payment = paymentRepository.save(payment);
         log.info("Created KHQR payment id={} for orderId={}, cutluyPaymentId={}",
                 payment.getId(), order.getId(), cutLuyPayment.id());
-
+        
         return new KhqrPaymentResult(
                 toResponse(payment),
                 cutLuyPayment.checkout_url(),
