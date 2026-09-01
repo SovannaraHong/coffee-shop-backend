@@ -1,4 +1,4 @@
-package com.coffee_shop.coffee_shop.scheduler;
+package com.coffee_shop.coffee_shop.client;
 
 import com.coffee_shop.coffee_shop.entity.Payment;
 import com.coffee_shop.coffee_shop.repository.PaymentRepository;
