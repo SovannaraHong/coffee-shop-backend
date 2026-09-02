@@ -4,6 +4,7 @@ import com.coffee_shop.coffee_shop.service.TelegramNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -24,6 +25,7 @@ public class TelegramNotificationServiceImpl implements TelegramNotificationServ
     private static final MediaType JSON = MediaType.parse("application/json");
 
     @Override
+    @Async
     public void sendMessage(String text) {
         try {
             Map<String, Object> payload = Map.of(

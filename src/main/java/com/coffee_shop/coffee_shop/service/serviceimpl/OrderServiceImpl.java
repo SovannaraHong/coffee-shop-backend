@@ -73,7 +73,7 @@ public class OrderServiceImpl implements OrderService {
         order.setFinalAmount(totalAmount.subtract(order.getDiscountAmount()).add(order.getTaxAmount()));
 
         Order saved = orderRepository.save(order);
-        telegramNotificationService.sendMessage(buildOrderTelegramMessage(saved, customer));
+//        telegramNotificationService.sendMessage(buildOrderTelegramMessage(saved, customer));
         return orderMapper.toResponse(saved);
     }
 

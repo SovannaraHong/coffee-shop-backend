@@ -10,6 +10,7 @@ import com.coffee_shop.coffee_shop.mapper.CutLuyStatusMapper;
 import com.coffee_shop.coffee_shop.repository.OrderRepository;
 import com.coffee_shop.coffee_shop.repository.PaymentRepository;
 import com.coffee_shop.coffee_shop.service.PaymentService;
+import com.coffee_shop.coffee_shop.service.TelegramNotificationService;
 import com.coffee_shop.coffee_shop.util.enums.OrderStatus;
 import com.coffee_shop.coffee_shop.util.enums.PaymentMethod;
 import com.coffee_shop.coffee_shop.util.enums.PaymentStatus;
@@ -29,7 +30,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final CutLuyClient cutLuyClient;
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-
+    private final TelegramNotificationService telegramNotificationService;
+    private final TelegramOrderMessageBuilder telegramOrderMessageBuilder;
     /*
     V1 of payment
      */
@@ -74,7 +76,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         log.info("Created KHQR payment id={} for orderId={}, cutluyPaymentId={}",
                 payment.getId(), order.getId(), cutLuyPayment.id());
-        
+
         return new KhqrPaymentResult(
                 toResponse(payment),
                 cutLuyPayment.checkout_url(),
@@ -106,6 +108,7 @@ public class PaymentServiceImpl implements PaymentService {
             if (mapped == PaymentStatus.PAID) {
                 payment.setPaidAt(LocalDateTime.now());
                 confirmOrderIfPending(payment.getOrder());
+                notifyOrderPaid(payment.getOrder());
             }
 
             paymentRepository.save(payment);
@@ -134,6 +137,17 @@ public class PaymentServiceImpl implements PaymentService {
         if (order.getStatus() == OrderStatus.PENDING) {
             order.setStatus(OrderStatus.CONFIRMED);
             orderRepository.save(order);
+        }
+    }
+
+    private void notifyOrderPaid(Order order) {
+        try {
+            telegramNotificationService.sendMessage(
+                    telegramOrderMessageBuilder.buildOrderPaidMessage(order, order.getCustomer())
+            );
+        } catch (Exception e) {
+            // Never let a Telegram failure roll back or fail the payment confirmation.
+            log.error("Failed to send Telegram payment-confirmed message for orderId={}", order.getId(), e);
         }
     }
 
