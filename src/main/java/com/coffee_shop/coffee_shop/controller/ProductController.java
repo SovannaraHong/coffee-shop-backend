@@ -35,12 +35,13 @@ public class ProductController {
 
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PostMapping("/create")
     public ResponseEntity<ProductResponse> createProduct(@RequestBody ProductRequest productRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.create(productRequest));
     }
 
-
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}/image")
     public ResponseEntity<?> uploadProductImage(
             @PathVariable Long id,
@@ -60,11 +61,13 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAll() {
         return ResponseEntity.ok().body(productService.getAll());
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}/update")
     public ResponseEntity<ProductResponse> update(
             @PathVariable Long id,
@@ -73,6 +76,7 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.update(id, request));
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> getById(@PathVariable Long id) {
         Product proId = productService.findById(id);
@@ -80,12 +84,14 @@ public class ProductController {
         return ResponseEntity.ok().body(response);
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<ProductResponse> changeStatus(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
@@ -94,16 +100,19 @@ public class ProductController {
         );
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/{id}/category")
     public ResponseEntity<List<ProductResponse>> findProductByCategoryId(@PathVariable Long id) {
         return ResponseEntity.ok().body(productService.findProductByCategoryId(id));
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/feature")
     public ResponseEntity<List<ProductResponse>> findFeatureProducts() {
         return ResponseEntity.ok().body(productService.findFeaturedProducts());
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/new")
     public ResponseEntity<List<ProductResponse>> findNewestProducts() {
         return ResponseEntity.ok().body(productService.findNewestProducts());
