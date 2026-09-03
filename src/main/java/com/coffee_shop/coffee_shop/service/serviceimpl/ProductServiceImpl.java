@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -46,6 +47,8 @@ public class ProductServiceImpl implements ProductService {
     private final CacheManager cacheManager;
     private final ProductCacheKeyGenerator keyGenerator;
 
+
+    @CacheEvict(value = "productPagination", allEntries = true)
     @Override
     @Transactional
     public ProductResponse create(ProductRequest productRequest) {
@@ -91,6 +94,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(saved);
     }
 
+    @CacheEvict(value = "productPagination", allEntries = true)
     @Transactional
     @Override
     public ProductResponse update(Long id, ProductRequest productRequest) {
@@ -115,9 +119,23 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponse> getAll() {
-        return productRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
-                .map(productMapper::toResponse)
-                .toList();
+        String key = "products::all";
+        Cache cache = cacheManager.getCache("productPagination");
+
+        if (cache != null) {
+            List<ProductResponse> cached = cache.get(key, List.class);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        List<ProductResponse> result =
+                productRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
+                        .map(productMapper::toResponse)
+                        .toList();
+        if (cache != null) {
+            cache.put(key, result);
+        }
+        return result;
     }
 
     @Override
@@ -158,6 +176,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @CacheEvict(value = "productPagination", allEntries = true)
     @Transactional
     @Override
     public void delete(Long id) {
@@ -167,6 +186,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @CacheEvict(value = "productPagination", allEntries = true)
     @Transactional
     @Override
     public ProductResponse updateImage(Long id, String imageUrl) {
@@ -175,6 +195,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(product));
     }
 
+    @CacheEvict(value = "productPagination", allEntries = true)
     @Transactional
     @Override
     public ProductResponse changeProductStatus(Long id) {

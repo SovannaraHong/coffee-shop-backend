@@ -25,8 +25,9 @@ public class StaffAuthController {
     private final UserService userService;
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody UserLoginRequest request) {
-        userService.login(request);
+    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody UserLoginRequest request,
+                                                     HttpServletRequest httpServletRequest) {
+        userService.login(request, httpServletRequest);
         return ResponseEntity.ok(Map.of("message", "OTP sent to your email. Please verify to complete login."));
     }
 

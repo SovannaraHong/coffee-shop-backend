@@ -9,6 +9,10 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "app_user", uniqueConstraints = {
         @UniqueConstraint(name = "uk_user_email", columnNames = "email")
+}, indexes = {
+        @Index(name = "idx_user_full_name", columnList = "full_name"),
+        @Index(name = "idx_user_role_id", columnList = "role_id"),
+        @Index(name = "idx_user_is_active", columnList = "is_active")
 })
 @Data
 @NoArgsConstructor
@@ -28,6 +32,9 @@ public class User extends CreatedAuditable {
 
     @Column(nullable = false, length = 255)
     private String password;
+
+    @Column(nullable = true, length = 255)
+    private String avatarUrl;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false,
