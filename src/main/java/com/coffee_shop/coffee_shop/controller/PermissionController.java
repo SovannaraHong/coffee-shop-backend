@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.controller;
 
 import com.coffee_shop.coffee_shop.dto.request.PermissionCreateRequest;
+import com.coffee_shop.coffee_shop.dto.request.PermissionUpdateRequest;
 import com.coffee_shop.coffee_shop.dto.response.PermissionResponse;
 import com.coffee_shop.coffee_shop.service.PermissionService;
 import jakarta.validation.Valid;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RequestMapping("api/permissions")
+@RequestMapping("/api/permissions")
 @RestController
 @RequiredArgsConstructor
 public class PermissionController {
@@ -21,8 +22,17 @@ public class PermissionController {
 
     @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
     @PostMapping
-    public ResponseEntity<PermissionResponse> create(@Valid @RequestBody PermissionCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.create(request));
+    public ResponseEntity<PermissionResponse> create(
+            @Valid @RequestBody PermissionCreateRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(permissionService.create(request));
+    }
+
+    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
+    @PutMapping("/{id}")
+    public ResponseEntity<PermissionResponse> update(@PathVariable Long id, @Valid @RequestBody PermissionUpdateRequest request) {
+        return ResponseEntity.ok(permissionService.update(id, request));
     }
 
     @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
