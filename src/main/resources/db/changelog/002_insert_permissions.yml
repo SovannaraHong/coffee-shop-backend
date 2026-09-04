@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002_insert_permissions
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - loadData:
+            tableName: permission
+            file: data/002_permissions.csv
+            relativeToChangelogFile: true
+            separator: ","
+            encoding: UTF-8
+
+            columns:
+              - column:
+                  header: name
+                  name: name
+                  type: STRING
+
+              - column:
+                  header: description
+                  name: description
+                  type: STRING
+
+      rollback:
+        - sql:
+            sql: |
+              DELETE FROM permission
+              WHERE name IN (
+                  'USER_MANAGE',
+                  'ROLE_MANAGE',
+                  'PRODUCT_MANAGE',
+                  'ORDER_MANAGE',
+                  'INVENTORY_MANAGE',
+                  'CUSTOMER_MANAGE',
+                  'PAYMENT_MANAGE'
+              );

@@ -1,0 +1,8 @@
+name,description
+USER_MANAGE,"Manage users, including create, update, delete, status, unlock and image upload"
+ROLE_MANAGE,"Manage roles and their permissions"
+PRODUCT_MANAGE,"Manage products"
+ORDER_MANAGE,"Manage orders"
+INVENTORY_MANAGE,"Manage inventory and stock"
+CUSTOMER_MANAGE,"Manage customers"
+PAYMENT_MANAGE,"Manage payments"

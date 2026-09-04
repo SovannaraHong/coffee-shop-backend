@@ -1,0 +1,13 @@
+databaseChangeLog:
+
+  - include:
+      file: db/changelog/001_init_db_structure.yml
+
+  - include:
+      file: db/changelog/002_insert_permissions.yml
+
+  - include:
+      file: db/changelog/004_insert_admin_role.yml
+
+  - include:
+      file: db/changelog/005_insert_first_admin_user.yml
