@@ -1,0 +1,40 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004_insert_admin_role
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - loadData:
+            tableName: role
+            file: data/004_roles.csv
+            relativeToChangelogFile: true
+            separator: ","
+            encoding: UTF-8
+
+            columns:
+              - column:
+                  header: name
+                  name: name
+                  type: STRING
+
+        - sql:
+            sql: |
+              INSERT INTO role_permission (role_id, permission_id)
+              SELECT r.id, p.id
+              FROM role r
+              CROSS JOIN permission p
+              WHERE r.name = 'ADMIN';
+
+      rollback:
+        - sql:
+            sql: |
+              DELETE FROM role_permission
+              WHERE role_id = (
+                  SELECT id
+                  FROM role
+                  WHERE name = 'ADMIN'
+              );
+
+        - delete:
+            tableName: role
+            where: name = 'ADMIN'

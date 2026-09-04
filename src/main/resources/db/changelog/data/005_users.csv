@@ -1,0 +1,2 @@
+id,full_name,email,PASSWORD,role_id,is_active,failed_login_attempts,created_at,created_by,updated_by
+1,System Administrator,rapewpew372@gmail.com,$2a$10$o/UQq4w19F4lFtYsvfS6nui6ADFESGcJBW9stqff8Ky/yXZb78jWi,1,true,0,2026-09-04T20:00:00,,

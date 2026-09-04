@@ -6,8 +6,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 public class AuthUser implements UserDetails {
@@ -26,9 +26,15 @@ public class AuthUser implements UserDetails {
         this.roleName = user.getRole().getName();
         this.active = user.getIsActive();
 
-        this.authorities = user.getRole().getPermissions().stream()
+//        this.authorities = user.getRole().getPermissions().stream()
+//                .map(p -> (GrantedAuthority) new SimpleGrantedAuthority(p.getName()))
+//                .collect(Collectors.toList());
+//        this.authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+        List<GrantedAuthority> permissionAuthorities = user.getRole().getPermissions().stream()
                 .map(p -> (GrantedAuthority) new SimpleGrantedAuthority(p.getName()))
-                .collect(Collectors.toList());
+                .toList();
+
+        this.authorities = new ArrayList<>(permissionAuthorities); // guaranteed mutable
         this.authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
     }
 

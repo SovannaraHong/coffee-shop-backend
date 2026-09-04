@@ -1,0 +1,144 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005_insert_first_admin_user
+      author: sovannaraHong@gmail.com
+
+      changes:
+
+        - createTable:
+            tableName: admin_user_seed
+            columns:
+              - column:
+                  name: id
+                  type: NUMBER
+
+              - column:
+                  name: full_name
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: email
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: PASSWORD
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: role_id
+                  type: NUMBER
+
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+
+              - column:
+                  name: failed_login_attempts
+                  type: NUMBER
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_by
+                  type: NUMBER
+
+              - column:
+                  name: updated_by
+                  type: NUMBER
+
+        - loadData:
+            tableName: admin_user_seed
+            file: data/005_users.csv
+            relativeToChangelogFile: true
+            separator: ","
+            encoding: UTF-8
+
+            columns:
+              - column:
+                  header: id
+                  name: id
+                  type: NUMERIC
+
+              - column:
+                  header: full_name
+                  name: full_name
+                  type: STRING
+
+              - column:
+                  header: email
+                  name: email
+                  type: STRING
+
+              - column:
+                  header: PASSWORD
+                  name: PASSWORD
+                  type: STRING
+
+              - column:
+                  header: role_id
+                  name: role_id
+                  type: NUMERIC
+
+              - column:
+                  header: is_active
+                  name: is_active
+                  type: BOOLEAN
+
+              - column:
+                  header: failed_login_attempts
+                  name: failed_login_attempts
+                  type: NUMERIC
+
+              - column:
+                  header: created_at
+                  name: created_at
+                  type: DATE
+
+              - column:
+                  header: created_by
+                  name: created_by
+                  type: NUMERIC
+
+              - column:
+                  header: updated_by
+                  name: updated_by
+                  type: NUMERIC
+
+        - sql:
+            sql: |
+              INSERT INTO app_user (
+                  id,
+                  full_name,
+                  email,
+                  PASSWORD,
+                  role_id,
+                  is_active,
+                  failed_login_attempts,
+                  created_at,
+                  created_by,
+                  updated_by
+              )
+              SELECT
+                  u.id,
+                  u.full_name,
+                  u.email,
+                  u.PASSWORD,
+                  r.id,
+                  u.is_active,
+                  u.failed_login_attempts,
+                  u.created_at,
+                  u.created_by,
+                  u.updated_by
+              FROM admin_user_seed u
+              CROSS JOIN role r
+              WHERE r.name = 'ADMIN';
+
+        - dropTable:
+            tableName: admin_user_seed
+
+      rollback:
+        - delete:
+            tableName: app_user
+            where: id = 1
