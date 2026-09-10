@@ -19,6 +19,7 @@ import com.coffee_shop.coffee_shop.specification.user.UserFilter;
 import com.coffee_shop.coffee_shop.specification.user.UserSpec;
 import com.coffee_shop.coffee_shop.util.DeviceFingerprintUtil;
 import com.coffee_shop.coffee_shop.util.PageUtil;
+import com.coffee_shop.coffee_shop.util.enums.AuditEventType;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -56,6 +57,8 @@ public class UserServiceImpl implements UserService {
     private final IpLoginAttemptService ipLoginAttemptService;
     private final S3Service s3Service;
 
+    private final AuditLogService auditLogService;
+
     @Override
     @Transactional
     public UserResponse createStaff(UserCreateRequest request) {
@@ -73,8 +76,10 @@ public class UserServiceImpl implements UserService {
                 .role(role)
                 .isActive(true)
                 .build();
-
-        return userMapper.toResponse(userRepository.save(user));
+        User saveUser = userRepository.save(user);
+        auditLogService.log(AuditEventType.STAFF_CREATED, saveUser.getEmail(), true,
+                "Created with role: " + role.getName(), null);
+        return userMapper.toResponse(saveUser);
     }
 
     @Override
@@ -110,7 +115,10 @@ public class UserServiceImpl implements UserService {
                     );
 
             user.setRole(role);
+            auditLogService.log(AuditEventType.ROLE_PERMISSION_CHANGED, user.getEmail(), true,
+                    "Role changed to: " + role.getName(), null);
         }
+
 
         return userMapper.toResponse(
                 userRepository.save(user)
@@ -172,6 +180,12 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void login(UserLoginRequest request, HttpServletRequest httpServletRequest) {
         String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
+
+        if (auditLogService.isIpSuspicious(ip)) {
+            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
+                    "Blocked: IP flagged as suspicious (too many recent failures)", httpServletRequest);
+        }
+
         ipLoginAttemptService.checkNotBanned(ip);
 
         User user = userRepository.findByEmail(request.getEmail()).orElse(null);
@@ -181,6 +195,10 @@ public class UserServiceImpl implements UserService {
         }
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
             long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), user.getLockedUntil());
+
+            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
+                    "Account is locked", httpServletRequest);
+
             throw new BadRequestException(
                     "Account locked due to too many failed attempts. Try again in " + minutesLeft + " minutes."
             );
@@ -193,8 +211,12 @@ public class UserServiceImpl implements UserService {
         } catch (UsernameNotFoundException | BadCredentialsException e) {
             loginAttemptService.registerFailedAttempt(user.getId());
             ipLoginAttemptService.registerFailedAttempt(ip);
+            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
+                    "Invalid credentials", httpServletRequest);
             throw new BadRequestException("Invalid email or password");
         } catch (DisabledException e) {
+            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
+                    "Account deactivated", httpServletRequest);
             throw new BadRequestException("This account has been deactivated");
         }
 
@@ -202,6 +224,9 @@ public class UserServiceImpl implements UserService {
         user.setLockedUntil(null);
         userRepository.save(user);
         ipLoginAttemptService.resetAttempts(ip);
+
+        auditLogService.log(AuditEventType.LOGIN_SUCCESS, request.getEmail(), true,
+                "Credentials verified, OTP sent", httpServletRequest);
 
         otpService.generateAndSendOtp(request.getEmail());
     }
@@ -214,6 +239,9 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new BadRequestException("Session not found or already logged out"));
         session.setRevoked(true);
         userSessionRepository.save(session);
+
+        auditLogService.log(AuditEventType.LOGIN_SUCCESS, jwtService.extractUsername(accessToken), true,
+                "Logged out (single session revoked)", null);
     }
 
     @Override
@@ -223,6 +251,9 @@ public class UserServiceImpl implements UserService {
         List<UserSession> sessions = userSessionRepository.findAllByUserIdAndRevokedFalse(userId);
         sessions.forEach(s -> s.setRevoked(true));
         userSessionRepository.saveAll(sessions);
+
+        auditLogService.log(AuditEventType.LOGIN_SUCCESS, jwtService.extractUsername(accessToken), true,
+                "Logged out of all devices (" + sessions.size() + " sessions revoked)", null);
     }
 
     @Override
@@ -233,7 +264,15 @@ public class UserServiceImpl implements UserService {
         if (!user.getIsActive()) {
             throw new BadRequestException("This account has been deactivated");
         }
-        otpService.verifyOtp(request.getEmail(), request.getCode());
+        try {
+            otpService.verifyOtp(request.getEmail(), request.getCode());
+        } catch (RuntimeException e) {
+            auditLogService.log(AuditEventType.OTP_FAILED, request.getEmail(), false,
+                    e.getMessage(), httpServletRequest);
+            throw e;
+        }
+        auditLogService.log(AuditEventType.OTP_VERIFIED, request.getEmail(), true,
+                "OTP verified successfully", httpServletRequest);
 
         String userAgent = DeviceFingerprintUtil.extractDeviceInfo(httpServletRequest);
         String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
@@ -273,13 +312,21 @@ public class UserServiceImpl implements UserService {
 
         String sessionId = jwtService.extractSessionId(token);
         UserSession session = userSessionRepository.findBySessionIdAndRevokedFalse(sessionId)
-                .orElseThrow(() -> new BadRequestException("Session has been revoked. Please log in again."));
+                .orElseThrow(() -> {
+                    auditLogService.log(AuditEventType.REFRESH_TOKEN_REJECTED, jwtService.extractUsername(token), false,
+                            "Session revoked or missing", httpServletRequest);
+                    return new BadRequestException("Session has been revoked. Please log in again."
+
+                    );
+                });
 
         String currentFingerprint = DeviceFingerprintUtil.fingerprint(
                 DeviceFingerprintUtil.extractDeviceInfo(httpServletRequest),
                 DeviceFingerprintUtil.extractIp(httpServletRequest)
         );
         if (!currentFingerprint.equals(jwtService.extractDeviceFingerprint(token))) {
+            auditLogService.log(AuditEventType.ACCESS_DENIED_DEVICE_MISMATCH, jwtService.extractUsername(token), false,
+                    "Refresh attempted from a different device", httpServletRequest);
             throw new BadRequestException("Refresh token cannot be used from a different device.");
         }
 
@@ -292,6 +339,9 @@ public class UserServiceImpl implements UserService {
 
         session.setLastUsedAt(LocalDateTime.now());
         userSessionRepository.save(session);
+
+        auditLogService.log(AuditEventType.TOKEN_REFRESHED, email, true,
+                "Access token refreshed", httpServletRequest);
 
         AuthUser authUser = new AuthUser(user);
         String newAccessToken = jwtService.generateAccessToken(authUser, sessionId, currentFingerprint);
@@ -320,6 +370,9 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("User", id));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+
+        auditLogService.log(AuditEventType.ACCOUNT_LOCKED, user.getEmail(), true,
+                "Account manually unlocked by admin", null);
         return userMapper.toResponse(userRepository.save(user));
     }
 
@@ -329,6 +382,9 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("User", id));
         user.setIsActive(!user.getIsActive());
+
+        auditLogService.log(AuditEventType.ACCOUNT_STATUS_CHANGED, user.getEmail(), true,
+                "isActive set to: " + user.getIsActive(), null);
         return userMapper.toResponse(userRepository.save(user));
     }
 
