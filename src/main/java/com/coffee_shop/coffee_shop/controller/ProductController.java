@@ -22,17 +22,45 @@ import java.util.Map;
 @RequestMapping("api/products")
 @RequiredArgsConstructor
 public class ProductController {
-
     private final ProductService productService;
     private final ProductMapper productMapper;
     private final S3Service s3Service;
 
+    // ---- PUBLIC: customers browsing the menu ----
+
+    @GetMapping
+    public ResponseEntity<List<ProductResponse>> getAll() {
+        return ResponseEntity.ok().body(productService.getAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponse> getById(@PathVariable Long id) {
+        Product proId = productService.findById(id);
+        ProductResponse response = productMapper.toResponse(proId);
+        return ResponseEntity.ok().body(response);
+    }
+
+    @GetMapping("/{id}/category")
+    public ResponseEntity<List<ProductResponse>> findProductByCategoryId(@PathVariable Long id) {
+        return ResponseEntity.ok().body(productService.findProductByCategoryId(id));
+    }
+
+    @GetMapping("/feature")
+    public ResponseEntity<List<ProductResponse>> findFeatureProducts() {
+        return ResponseEntity.ok().body(productService.findFeaturedProducts());
+    }
+
+    @GetMapping("/new")
+    public ResponseEntity<List<ProductResponse>> findNewestProducts() {
+        return ResponseEntity.ok().body(productService.findNewestProducts());
+    }
+
+    // ---- STAFF ONLY: management ----
+
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
-        PageDTO<ProductResponse> pagination = productService.getPagination(params);
-        return ResponseEntity.ok().body(pagination);
-
+        return ResponseEntity.ok().body(productService.getPagination(params));
     }
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
@@ -43,45 +71,19 @@ public class ProductController {
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}/image")
-    public ResponseEntity<?> uploadProductImage(
-            @PathVariable Long id,
-            @RequestPart("file") MultipartFile file
-    ) throws Exception {
-
+    public ResponseEntity<?> uploadProductImage(@PathVariable Long id, @RequestPart("file") MultipartFile file) throws Exception {
         Product product = productService.findById(id);
-
-        // delete old image first, if it was S3-hosted
         if (product.getImageUrl() != null && product.getImageUrl().startsWith("https://")) {
             s3Service.deleteFile(product.getImageUrl());
         }
-
         String url = s3Service.uploadFile(file, "product_images");
-        ProductResponse response = productService.updateImage(id, url);
-
-        return ResponseEntity.status(HttpStatus.OK).body(response);
-    }
-
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
-    @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAll() {
-        return ResponseEntity.ok().body(productService.getAll());
+        return ResponseEntity.status(HttpStatus.OK).body(productService.updateImage(id, url));
     }
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}/update")
-    public ResponseEntity<ProductResponse> update(
-            @PathVariable Long id,
-            @Valid @RequestBody ProductRequest request
-    ) {
+    public ResponseEntity<ProductResponse> update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.update(id, request));
-    }
-
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> getById(@PathVariable Long id) {
-        Product proId = productService.findById(id);
-        ProductResponse response = productMapper.toResponse(proId);
-        return ResponseEntity.ok().body(response);
     }
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
@@ -94,28 +96,7 @@ public class ProductController {
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<ProductResponse> changeStatus(@PathVariable Long id) {
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                productService.changeProductStatus(id)
-
-        );
-    }
-
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
-    @GetMapping("/{id}/category")
-    public ResponseEntity<List<ProductResponse>> findProductByCategoryId(@PathVariable Long id) {
-        return ResponseEntity.ok().body(productService.findProductByCategoryId(id));
-    }
-
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
-    @GetMapping("/feature")
-    public ResponseEntity<List<ProductResponse>> findFeatureProducts() {
-        return ResponseEntity.ok().body(productService.findFeaturedProducts());
-    }
-
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
-    @GetMapping("/new")
-    public ResponseEntity<List<ProductResponse>> findNewestProducts() {
-        return ResponseEntity.ok().body(productService.findNewestProducts());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.changeProductStatus(id));
     }
 
 

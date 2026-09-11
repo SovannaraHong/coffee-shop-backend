@@ -1,2 +1,369 @@
 databaseChangeLog:
-  - 
+
+  # ============================================================
+  # 1. PERMISSION
+  # ============================================================
+  - changeSet:
+      id: 001_create_permission
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - createTable:
+            tableName: permission
+            columns:
+              - column:
+                  name: id
+                  type: NUMBER(19)
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: name
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: description
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_by
+                  type: NUMBER(19)
+
+              - column:
+                  name: updated_by
+                  type: NUMBER(19)
+
+        - addUniqueConstraint:
+            tableName: permission
+            columnNames: name
+            constraintName: uk_permission_name
+
+  # ============================================================
+  # 2. ROLE
+  # ============================================================
+  - changeSet:
+      id: 002_create_role
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - createTable:
+            tableName: role
+            columns:
+              - column:
+                  name: id
+                  type: NUMBER(19)
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: name
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_by
+                  type: NUMBER(19)
+
+              - column:
+                  name: updated_by
+                  type: NUMBER(19)
+
+        - addUniqueConstraint:
+            tableName: role
+            columnNames: name
+            constraintName: uk_role_name
+
+  # ============================================================
+  # 3. APP USER
+  # ============================================================
+  - changeSet:
+      id: 003_create_app_user
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - createTable:
+            tableName: app_user
+            columns:
+              - column:
+                  name: id
+                  type: NUMBER(19)
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: full_name
+                  type: VARCHAR2(150)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: email
+                  type: VARCHAR2(150)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: password_hash
+                  type: VARCHAR2(255)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: avatar_url
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: role_id
+                  type: NUMBER(19)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: is_active
+                  type: NUMBER(1)
+                  defaultValueNumeric: 1
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: failed_login_attempts
+                  type: NUMBER(10)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: locked_until
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: created_by
+                  type: NUMBER(19)
+
+              - column:
+                  name: updated_by
+                  type: NUMBER(19)
+
+        - addUniqueConstraint:
+            tableName: app_user
+            columnNames: email
+            constraintName: uk_user_email
+
+        - createIndex:
+            tableName: app_user
+            indexName: idx_user_full_name
+            columns:
+              - column:
+                  name: full_name
+
+        - createIndex:
+            tableName: app_user
+            indexName: idx_user_role_id
+            columns:
+              - column:
+                  name: role_id
+
+        - createIndex:
+            tableName: app_user
+            indexName: idx_user_is_active
+            columns:
+              - column:
+                  name: is_active
+
+  # ============================================================
+  # 4. ROLE_PERMISSION
+  # ============================================================
+  - changeSet:
+      id: 004_create_role_permission
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - createTable:
+            tableName: role_permission
+            columns:
+              - column:
+                  name: role_id
+                  type: NUMBER(19)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: permission_id
+                  type: NUMBER(19)
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: role_permission
+            columnNames: role_id, permission_id
+            constraintName: pk_role_permission
+
+  # ============================================================
+  # 5. USER SESSION
+  # ============================================================
+  - changeSet:
+      id: 005_create_user_session
+      author: sovannaraHong@gmail.com
+
+      changes:
+        - createTable:
+            tableName: user_session
+            columns:
+              - column:
+                  name: session_id
+                  type: VARCHAR2(36)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: user_id
+                  type: NUMBER(19)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: device_info
+                  type: VARCHAR2(255)
+
+              - column:
+                  name: ip_address
+                  type: VARCHAR2(64)
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: last_used_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: revoked
+                  type: NUMBER(1)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: user_session
+            indexName: idx_session_user_id
+            columns:
+              - column:
+                  name: user_id
+
+  # ============================================================
+  # 6. FOREIGN KEYS
+  # ============================================================
+  - changeSet:
+      id: 006_create_security_foreign_keys
+      author: sovannaraHong@gmail.com
+
+      changes:
+
+        - addForeignKeyConstraint:
+            baseTableName: app_user
+            baseColumnNames: role_id
+            constraintName: fk_user_role
+            referencedTableName: role
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: role_permission
+            baseColumnNames: role_id
+            constraintName: fk_role_permission_role
+            referencedTableName: role
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: role_permission
+            baseColumnNames: permission_id
+            constraintName: fk_role_permission_permission
+            referencedTableName: permission
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: user_session
+            baseColumnNames: user_id
+            constraintName: fk_session_user
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: app_user
+            baseColumnNames: created_by
+            constraintName: fk_user_created_by
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: app_user
+            baseColumnNames: updated_by
+            constraintName: fk_user_updated_by
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: role
+            baseColumnNames: created_by
+            constraintName: fk_role_created_by
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: role
+            baseColumnNames: updated_by
+            constraintName: fk_role_updated_by
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: permission
+            baseColumnNames: created_by
+            constraintName: fk_permission_created_by
+            referencedTableName: app_user
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: permission
+            baseColumnNames: updated_by
+            constraintName: fk_permission_updated_by
+            referencedTableName: app_user
+            referencedColumnNames: id

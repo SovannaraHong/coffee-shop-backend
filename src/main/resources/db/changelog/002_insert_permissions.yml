@@ -1,4 +1,5 @@
 databaseChangeLog:
+
   - changeSet:
       id: 002_insert_permissions
       author: sovannaraHong@gmail.com
@@ -33,5 +34,6 @@ databaseChangeLog:
                   'ORDER_MANAGE',
                   'INVENTORY_MANAGE',
                   'CUSTOMER_MANAGE',
-                  'PAYMENT_MANAGE'
+                  'PAYMENT_MANAGE',
+                  'PERMISSION_MANAGE'
               );

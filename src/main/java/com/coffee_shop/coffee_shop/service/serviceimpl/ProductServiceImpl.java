@@ -119,8 +119,8 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponse> getAll() {
-        String key = "products::all";
-        Cache cache = cacheManager.getCache("productPagination");
+        String key = "all";
+        Cache cache = cacheManager.getCache("productList");
 
         if (cache != null) {
             List<ProductResponse> cached = cache.get(key, List.class);
