@@ -30,7 +30,7 @@ public class User extends CreatedAuditable {
     private String email;
 
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "password_hash", nullable = false, length = 255)
     private String password;
 
     @Column(nullable = true, length = 255)

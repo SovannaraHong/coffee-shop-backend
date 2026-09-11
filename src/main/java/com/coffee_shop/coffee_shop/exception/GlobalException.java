@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.exception;
 
 import com.coffee_shop.coffee_shop.dto.response.ErrorResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.time.format.DateTimeParseException;
 import java.util.stream.Collectors;
 
+@Slf4j
 @ControllerAdvice
 public class GlobalException {
 
@@ -103,10 +105,13 @@ public class GlobalException {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Unhandled exception on request", ex); // <-- this line is the fix
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.");
     }
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message) {
         return new ResponseEntity<>(new ErrorResponse(status.value(), message), status);
     }
+
+
 }
