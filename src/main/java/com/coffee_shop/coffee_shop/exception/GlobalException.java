@@ -14,6 +14,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.time.format.DateTimeParseException;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -88,6 +89,19 @@ public class GlobalException {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+
+    @ExceptionHandler(FileValidationException.class)
+    public ResponseEntity<Map<String, String>> handleValidation(FileValidationException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(ImageUploadException.class)
+    public ResponseEntity<Map<String, String>> handleUploadFailure(ImageUploadException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", e.getMessage()));
     }
 
     // ==============================

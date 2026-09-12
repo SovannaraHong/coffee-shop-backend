@@ -3,6 +3,7 @@ databaseChangeLog:
   - changeSet:
       id: 005_insert_first_admin_user
       author: sovannaraHong@gmail.com
+      validCheckSum: ANY
 
       changes:
 
@@ -36,7 +37,7 @@ databaseChangeLog:
               - column:
                   header: is_active
                   name: is_active
-                  type: NUMERIC
+                  type: BOOLEAN
               - column:
                   header: failed_login_attempts
                   name: failed_login_attempts

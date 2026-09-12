@@ -8,6 +8,8 @@ import com.coffee_shop.coffee_shop.entity.Category;
 import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.entity.Variant;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
+import com.coffee_shop.coffee_shop.exception.FileValidationException;
+import com.coffee_shop.coffee_shop.exception.ImageUploadException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.mapper.VariantMapper;
@@ -15,6 +17,7 @@ import com.coffee_shop.coffee_shop.repository.ProductRepository;
 import com.coffee_shop.coffee_shop.repository.VariantRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
 import com.coffee_shop.coffee_shop.service.ProductService;
+import com.coffee_shop.coffee_shop.service.S3Service;
 import com.coffee_shop.coffee_shop.specification.product.ProductFilter;
 import com.coffee_shop.coffee_shop.specification.product.ProductSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
@@ -29,7 +32,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,17 +43,24 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
+
+    private static final long MAX_IMAGE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/png", "image/jpeg", "image/webp"
+    );
+
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final VariantMapper variantMapper;
     private final CategoryService categoryService;
     private final VariantRepository variantRepository;
+    private final S3Service s3Service;
 
     private final CacheManager cacheManager;
     private final ProductCacheKeyGenerator keyGenerator;
 
 
-    @CacheEvict(value = "productPagination", allEntries = true)
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
     @Override
     @Transactional
     public ProductResponse create(ProductRequest productRequest) {
@@ -94,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(saved);
     }
 
-    @CacheEvict(value = "productPagination", allEntries = true)
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
     @Transactional
     @Override
     public ProductResponse update(Long id, ProductRequest productRequest) {
@@ -176,7 +188,7 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
-    @CacheEvict(value = "productPagination", allEntries = true)
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
     @Transactional
     @Override
     public void delete(Long id) {
@@ -186,16 +198,66 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
-    @CacheEvict(value = "productPagination", allEntries = true)
-    @Transactional
     @Override
-    public ProductResponse updateImage(Long id, String imageUrl) {
-        Product product = findById(id);
-        product.setImageUrl(imageUrl);
-        return productMapper.toResponse(productRepository.save(product));
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
+    @Transactional
+    public ProductResponse uploadProductImage(Long id, MultipartFile file) throws IOException {
+        validateImageFile(file);
+
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+
+        String oldUrl = product.getImageUrl();
+
+        // Upload first — never destroy the old image before the new one is confirmed
+        String newUrl;
+        try {
+            newUrl = s3Service.uploadFile(file, "product_images");
+        } catch (IOException e) {
+            log.error("Failed to upload image for product {}", id, e);
+            throw new ImageUploadException("Failed to upload image, please try again", e);
+        }
+
+        product.setImageUrl(newUrl);
+        Product saved;
+        try {
+            saved = productRepository.save(product);
+        } catch (Exception e) {
+            log.error("Failed to save image URL for product {}, cleaning up orphaned upload", id, e);
+            safeDelete(newUrl);
+            throw e;
+        }
+
+        // Only now clean up the old image, and only if it's actually ours
+        if (oldUrl != null && s3Service.isManagedUrl(oldUrl)) {
+            safeDelete(oldUrl);
+        }
+
+        return productMapper.toResponse(saved);
     }
 
-    @CacheEvict(value = "productPagination", allEntries = true)
+    private void safeDelete(String url) {
+        try {
+            s3Service.deleteFile(url);
+        } catch (Exception e) {
+            log.warn("Failed to delete image at {}", url, e);
+        }
+    }
+
+    private void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new FileValidationException("File is empty");
+        }
+        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
+            throw new FileValidationException("File exceeds 5MB limit");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new FileValidationException("Only PNG, JPEG, or WEBP images are allowed");
+        }
+    }
+
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
     @Transactional
     @Override
     public ProductResponse changeProductStatus(Long id) {
@@ -203,6 +265,7 @@ public class ProductServiceImpl implements ProductService {
         byId.setIsActive(!byId.getIsActive());
         return productMapper.toResponse(productRepository.save(byId));
     }
+
 
     @Transactional(readOnly = true)
     @Override
@@ -219,6 +282,7 @@ public class ProductServiceImpl implements ProductService {
         return byCategoryId.stream().map(productMapper::toResponse).toList();
 
     }
+
 
     @Transactional(readOnly = true)
     @Override
