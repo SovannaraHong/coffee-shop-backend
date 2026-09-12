@@ -1,4 +1,4 @@
-package com.coffee_shop.coffee_shop.service.serviceimpl;
+package com.coffee_shop.coffee_shop.service.impl;
 
 import com.coffee_shop.coffee_shop.service.S3Service;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +10,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -27,20 +28,14 @@ public class S3ServiceImpl implements S3Service {
     @Value("${aws.region}")
     private String region;
 
+    private String bucketUrlPrefix() {
+        return "https://" + bucketName + ".s3." + region + ".amazonaws.com/";
+    }
+
     @Override
     public String uploadFile(MultipartFile file, String folder) throws IOException {
-
-        if (file.getSize() > 5 * 1024 * 1024) { // 5MB limit
-            throw new IllegalArgumentException("File too large. Max size is 5MB.");
-        }
-        String originalName = file.getOriginalFilename();
-        String extension = "";
-        if (originalName != null && originalName.contains(".")) {
-            extension = originalName.substring(originalName.lastIndexOf("."));
-        }
-
-        String fileName = UUID.randomUUID() + extension;
-        String key = folder + "/" + fileName;
+        String extension = extractExtension(file.getOriginalFilename());
+        String key = folder + "/" + UUID.randomUUID() + extension;
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -48,32 +43,48 @@ public class S3ServiceImpl implements S3Service {
                 .contentType(file.getContentType())
                 .build();
 
-        s3Client.putObject(request, RequestBody.fromBytes(file.getBytes()));
+        try {
+            s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+        } catch (S3Exception e) {
+            log.error("S3 upload failed for key {}", key, e);
+            throw new IOException("Failed to upload file to S3", e);
+        }
 
-        return "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + key;
+        return bucketUrlPrefix() + key;
     }
 
     @Override
     public void deleteFile(String fileUrl) {
-        if (fileUrl == null || fileUrl.isBlank()) return;
+        if (!isManagedUrl(fileUrl)) {
+            log.warn("Refusing to delete URL not managed by this bucket: {}", fileUrl);
+            return;
+        }
 
+        String key = extractKey(fileUrl);
         try {
-            String key = extractKeyFromUrl(fileUrl);
             s3Client.deleteObject(DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build());
-        } catch (Exception e) {
-            log.warn("Failed to delete S3 object for url {}: {}", fileUrl, e.getMessage());
+        } catch (S3Exception e) {
+            log.error("Failed to delete S3 object with key {}", key, e);
+            throw e;
         }
     }
 
-    private String extractKeyFromUrl(String fileUrl) {
-        String marker = ".amazonaws.com/";
-        int idx = fileUrl.indexOf(marker);
-        if (idx == -1) {
-            throw new IllegalArgumentException("Unrecognized S3 URL format: " + fileUrl);
+    @Override
+    public boolean isManagedUrl(String fileUrl) {
+        return fileUrl != null && fileUrl.startsWith(bucketUrlPrefix());
+    }
+
+    private String extractKey(String fileUrl) {
+        return fileUrl.substring(bucketUrlPrefix().length());
+    }
+
+    private String extractExtension(String originalFilename) {
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            return "";
         }
-        return fileUrl.substring(idx + marker.length());
+        return originalFilename.substring(originalFilename.lastIndexOf('.'));
     }
 }

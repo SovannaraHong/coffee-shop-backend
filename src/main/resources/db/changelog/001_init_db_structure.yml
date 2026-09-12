@@ -102,6 +102,7 @@ databaseChangeLog:
   - changeSet:
       id: 003_create_app_user
       author: sovannaraHong@gmail.com
+      validCheckSum: ANY
 
       changes:
         - createTable:
@@ -145,8 +146,8 @@ databaseChangeLog:
 
               - column:
                   name: is_active
-                  type: NUMBER(1)
-                  defaultValueNumeric: 1
+                  type: BOOLEAN
+                  defaultValueBoolean: true
                   constraints:
                     nullable: false
 
@@ -237,6 +238,7 @@ databaseChangeLog:
   - changeSet:
       id: 005_create_user_session
       author: sovannaraHong@gmail.com
+      validCheckSum: ANY
 
       changes:
         - createTable:
@@ -277,8 +279,8 @@ databaseChangeLog:
 
               - column:
                   name: revoked
-                  type: NUMBER(1)
-                  defaultValueNumeric: 0
+                  type: BOOLEAN
+                  defaultValueBoolean: false
                   constraints:
                     nullable: false
 

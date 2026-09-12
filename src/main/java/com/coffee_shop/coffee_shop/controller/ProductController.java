@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -57,7 +58,6 @@ public class ProductController {
 
     // ---- STAFF ONLY: management ----
 
-    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<ProductResponse>> getProducts(@RequestParam Map<String, String> params) {
         return ResponseEntity.ok().body(productService.getPagination(params));
@@ -71,13 +71,10 @@ public class ProductController {
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}/image")
-    public ResponseEntity<?> uploadProductImage(@PathVariable Long id, @RequestPart("file") MultipartFile file) throws Exception {
-        Product product = productService.findById(id);
-        if (product.getImageUrl() != null && product.getImageUrl().startsWith("https://")) {
-            s3Service.deleteFile(product.getImageUrl());
-        }
-        String url = s3Service.uploadFile(file, "product_images");
-        return ResponseEntity.status(HttpStatus.OK).body(productService.updateImage(id, url));
+    public ResponseEntity<ProductResponse> uploadProductImage(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(productService.uploadProductImage(id, file));
     }
 
     @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")

@@ -4,7 +4,9 @@ import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
 import com.coffee_shop.coffee_shop.entity.Product;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +24,7 @@ public interface ProductService {
 
     void delete(Long id);
 
-    ProductResponse updateImage(Long id, String imageUrl);
+    ProductResponse uploadProductImage(Long id, MultipartFile file) throws IOException;
 
 
     ProductResponse changeProductStatus(Long id);
