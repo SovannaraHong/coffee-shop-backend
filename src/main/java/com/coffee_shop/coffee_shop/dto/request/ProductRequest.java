@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Set;
 
 // ProductRequest.java
 @Data
@@ -28,4 +29,6 @@ public class ProductRequest {
     @NotEmpty(message = "At least one variant is required.")
     @Valid
     private List<VariantRequest> variants;
+
+    private Set<Long> addonIds;
 }

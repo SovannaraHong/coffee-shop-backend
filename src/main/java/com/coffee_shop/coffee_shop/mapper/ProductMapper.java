@@ -19,6 +19,7 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "variants", ignore = true)
+    @Mapping(target = "addons", ignore = true)
     void updateEntity(@MappingTarget Product target, ProductRequest request);
 
     @Mapping(target = "categoryId", source = "category.id")

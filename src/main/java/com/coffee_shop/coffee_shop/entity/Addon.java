@@ -36,4 +36,10 @@ public class Addon extends CreatedAuditable {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Set<AddonIngredient> addonIngredients = new HashSet<>();
+
+    @ManyToMany(mappedBy = "addons", fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Product> products = new HashSet<>();
 }

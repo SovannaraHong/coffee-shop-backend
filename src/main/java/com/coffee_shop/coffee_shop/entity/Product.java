@@ -52,4 +52,15 @@ public class Product extends CreatedAuditable {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Set<Variant> variants = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "product_addon",
+            joinColumns = @JoinColumn(name = "product_id", foreignKey = @ForeignKey(name = "fk_product_addon_product")),
+            inverseJoinColumns = @JoinColumn(name = "addon_id", foreignKey = @ForeignKey(name = "fk_product_addon_addon"))
+    )
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Addon> addons = new HashSet<>();
 }
