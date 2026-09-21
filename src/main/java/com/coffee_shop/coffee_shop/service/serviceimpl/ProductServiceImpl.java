@@ -4,6 +4,7 @@ import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
 import com.coffee_shop.coffee_shop.dto.request.VariantRequest;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
+import com.coffee_shop.coffee_shop.entity.Addon;
 import com.coffee_shop.coffee_shop.entity.Category;
 import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.entity.Variant;
@@ -13,6 +14,7 @@ import com.coffee_shop.coffee_shop.exception.ImageUploadException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.mapper.VariantMapper;
+import com.coffee_shop.coffee_shop.repository.AddonRepository;
 import com.coffee_shop.coffee_shop.repository.ProductRepository;
 import com.coffee_shop.coffee_shop.repository.VariantRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
@@ -55,6 +57,8 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final VariantRepository variantRepository;
     private final S3Service s3Service;
+
+    private final AddonRepository addonRepository;
 
     private final CacheManager cacheManager;
     private final ProductCacheKeyGenerator keyGenerator;
@@ -102,9 +106,11 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toSet());
 
         product.setVariants(variants);
+        product.setAddons(resolveAddons(productRequest.getAddonIds()));
         Product saved = productRepository.save(product);
         return productMapper.toResponse(saved);
     }
+
 
     @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
     @Transactional
@@ -124,8 +130,10 @@ public class ProductServiceImpl implements ProductService {
 
         productMapper.updateEntity(proId, productRequest);
         proId.setCategory(cateId);
+        proId.setAddons(resolveAddons(productRequest.getAddonIds()));
 
         return productMapper.toResponse(productRepository.save(proId));
+
     }
 
     @Override
@@ -318,6 +326,30 @@ public class ProductServiceImpl implements ProductService {
                 .stream()
                 .map(productMapper::toResponse)
                 .toList();
+    }
+
+    //helper method
+    private Set<Addon> resolveAddons(Set<Long> addonIds) {
+        if (addonIds == null || addonIds.isEmpty()) {
+            return new HashSet<>();
+        }
+        List<Addon> found = addonRepository.findAllById(addonIds);
+        if (found.size() != addonIds.size()) {
+            Set<Long> foundIds = found.stream().map(Addon::getId).collect(Collectors.toSet());
+            Set<Long> missing = new HashSet<>(addonIds);
+            missing.removeAll(foundIds);
+            throw new ResourceNotFoundException("Addon(s) not found with id(s): " + missing);
+        }
+        List<Addon> inactive = found
+                .stream()
+                .filter(a -> !Boolean.TRUE.equals(a.getIsActive())).toList();
+
+        if (!inactive.isEmpty()) {
+            String names = inactive.stream().map(Addon::getName).collect(Collectors.joining(", "));
+            throw new BadRequestException("The following addon(s) are inactive and cannot be assigned: " + names);
+
+        }
+        return new HashSet<>(found);
     }
 
 }
