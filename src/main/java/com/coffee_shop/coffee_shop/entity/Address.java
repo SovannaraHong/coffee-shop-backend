@@ -47,4 +47,8 @@ public class Address extends CreatedAuditable {
     @Column(name = "is_default", nullable = false)
     @Builder.Default
     private Boolean isDefault = false;
+
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private Boolean active = true;
 }
