@@ -32,6 +32,7 @@ public class AddressServiceImpl implements AddressService {
 
         Address address = addressMapper.toEntity(request);
         address.setCustomer(customer);
+        address.setActive(true);
 
         if (Boolean.TRUE.equals(address.getIsDefault())) {
             clearExistingDefault(customer.getId());
@@ -67,7 +68,7 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     public List<AddressResponse> getByCustomerId(Long customerId) {
-        return addressRepository.findByCustomerId(customerId)
+        return addressRepository.findByCustomerIdAndActiveTrue(customerId)
                 .stream()
                 .map(addressMapper::toResponse)
                 .toList();
@@ -78,11 +79,12 @@ public class AddressServiceImpl implements AddressService {
     public void delete(Long id) {
         Address address = addressRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Address", id));
-        addressRepository.delete(address);
+        address.setActive(false);
+        addressRepository.save(address);
     }
 
     private void clearExistingDefault(Long customerId) {
-        addressRepository.findByCustomerId(customerId).forEach(a -> {
+        addressRepository.findByCustomerIdAndActiveTrue(customerId).forEach(a -> {
             if (Boolean.TRUE.equals(a.getIsDefault())) {
                 a.setIsDefault(false);
                 addressRepository.save(a);

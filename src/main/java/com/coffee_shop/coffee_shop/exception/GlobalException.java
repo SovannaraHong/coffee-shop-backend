@@ -104,6 +104,7 @@ public class GlobalException {
                 .body(Map.of("error", e.getMessage()));
     }
 
+  
     // ==============================
     // Routing
     // ==============================
