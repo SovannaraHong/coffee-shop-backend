@@ -6,13 +6,14 @@ import com.coffee_shop.coffee_shop.dto.request.CustomerUpdateRequest;
 import com.coffee_shop.coffee_shop.dto.request.VerifyOtpRequest;
 import com.coffee_shop.coffee_shop.dto.response.CustomerResponse;
 import com.coffee_shop.coffee_shop.dto.response.LoginResponse;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface CustomerService {
     CustomerResponse register(CustomerRegisterRequest request);
 
     void verifyOtp(VerifyOtpRequest request);
 
-    LoginResponse login(CustomerLoginRequest request);
+    LoginResponse login(CustomerLoginRequest request, HttpServletRequest httpServletRequest);
 
     CustomerResponse getProfile(Long id);
 

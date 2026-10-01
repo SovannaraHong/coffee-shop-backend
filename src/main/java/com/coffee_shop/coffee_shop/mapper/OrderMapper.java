@@ -21,6 +21,7 @@ public interface OrderMapper {
     OrderResponse toResponse(Order order);
 
     @Mapping(source = "productVariant.product.name", target = "productName")
+    @Mapping(source = "productVariant.product.imageUrl", target = "imageUrl")
     @Mapping(source = "productVariant.id", target = "variantId")
     @Mapping(source = "productVariant.name", target = "variantName")
     @Mapping(source = "orderDetailAddons", target = "addons")

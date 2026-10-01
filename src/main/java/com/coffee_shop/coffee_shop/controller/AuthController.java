@@ -6,6 +6,7 @@ import com.coffee_shop.coffee_shop.dto.request.VerifyOtpRequest;
 import com.coffee_shop.coffee_shop.dto.response.CustomerResponse;
 import com.coffee_shop.coffee_shop.dto.response.LoginResponse;
 import com.coffee_shop.coffee_shop.service.CustomerService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,7 +37,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody CustomerLoginRequest request) {
-        return ResponseEntity.ok(customerService.login(request));
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody CustomerLoginRequest request,
+                                               HttpServletRequest httpServletRequest) {
+        return ResponseEntity.ok(customerService.login(request, httpServletRequest));
     }
 }

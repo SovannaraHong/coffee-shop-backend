@@ -9,26 +9,41 @@ import com.coffee_shop.coffee_shop.dto.response.LoginResponse;
 import com.coffee_shop.coffee_shop.entity.Customer;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
+import com.coffee_shop.coffee_shop.exception.TooManyRequestsException;
 import com.coffee_shop.coffee_shop.mapper.CustomerMapper;
 import com.coffee_shop.coffee_shop.repository.CustomerRepository;
-import com.coffee_shop.coffee_shop.service.CustomerService;
-import com.coffee_shop.coffee_shop.service.JwtService;
-import com.coffee_shop.coffee_shop.service.OtpService;
+import com.coffee_shop.coffee_shop.service.*;
+import com.coffee_shop.coffee_shop.util.DeviceFingerprintUtil;
 import com.coffee_shop.coffee_shop.util.enums.AuthProvider;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
 @Service
 @RequiredArgsConstructor
 public class CustomerServiceImpl implements CustomerService {
+    private static final String INVALID = "Invalid email or password";
+
+    private String dummyHash;   // not final, so Lombok leaves it out of the constructor
+
+    @PostConstruct
+    void init() {
+        dummyHash = passwordEncoder.encode("dummy-password-for-timing");
+    }
 
     private final CustomerRepository customerRepository;
     private final CustomerMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final JwtService jwtService; // was JwtUtil — now unified
+    private final IpLoginAttemptService ipLoginAttemptService;
+    private final CustomerLoginAttemptService customerLoginAttemptService;
 
     @Transactional
     @Override
@@ -66,16 +81,38 @@ public class CustomerServiceImpl implements CustomerService {
         customerRepository.save(customer);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
-    public LoginResponse login(CustomerLoginRequest request) {
-        Customer customer = customerRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
+    public LoginResponse login(CustomerLoginRequest request, HttpServletRequest httpServletRequest) {
+        String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
+        ipLoginAttemptService.checkNotBanned(ip); // 429 IP_BANNED
+
+        Customer customer = customerRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (customer == null) {
+            passwordEncoder.matches(request.getPassword(), dummyHash);  // same response time as a real check
+            ipLoginAttemptService.registerFailedAttempt(ip);            // unknown emails count against the IP
+            throw new BadRequestException(INVALID);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (customer.getLockedUntil() != null && customer.getLockedUntil().isAfter(now)) {
+            long seconds = Math.max(1, ChronoUnit.SECONDS.between(now, customer.getLockedUntil()));
+            long minutes = (seconds + 59) / 60;
+            throw new TooManyRequestsException(
+                    TooManyRequestsException.ACCOUNT_LOCKED,
+                    "Account locked due to too many failed attempts. Try again in "
+                            + minutes + (minutes == 1 ? " minute." : " minutes."),
+                    seconds);
+        }
+
         if (customer.getPassword() == null) {
             throw new BadRequestException("This account uses social login. Please sign in with Google/Facebook.");
         }
+
         if (!passwordEncoder.matches(request.getPassword(), customer.getPassword())) {
-            throw new BadRequestException("Invalid email or password");
+            customerLoginAttemptService.registerFailedAttempt(customer.getId()); // fixed: was missing
+            ipLoginAttemptService.registerFailedAttempt(ip);                    // fixed: was missing
+            throw new BadRequestException(INVALID);
         }
         if (!customer.getIsVerified()) {
             throw new BadRequestException("Please verify your email before logging in");
@@ -83,6 +120,9 @@ public class CustomerServiceImpl implements CustomerService {
         if (!customer.getIsActive()) {
             throw new BadRequestException("This account has been deactivated");
         }
+
+        customerLoginAttemptService.resetAttempts(customer.getId()); // fixed: correct service now
+//        ipLoginAttemptService.resetAttempts(ip);
 
         String token = jwtService.generateCustomerToken(customer.getId(), customer.getEmail());
 

@@ -28,6 +28,7 @@ public class OrderDetailResponse {
     private Long variantId;
     private String productName;
     private String variantName;
+    private String imageUrl;
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
