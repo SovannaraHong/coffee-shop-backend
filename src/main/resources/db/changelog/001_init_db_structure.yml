@@ -159,6 +159,13 @@ databaseChangeLog:
                     nullable: false
 
               - column:
+                  name: lock_stage
+                  type: NUMBER(10)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+
+              - column:
                   name: locked_until
                   type: TIMESTAMP
 

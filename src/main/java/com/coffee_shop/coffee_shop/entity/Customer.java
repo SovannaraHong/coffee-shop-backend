@@ -4,6 +4,7 @@ import com.coffee_shop.coffee_shop.util.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -58,6 +59,22 @@ public class Customer extends CreatedAuditable {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+
+    // --- login lockout tracking ---
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    // how many times this account has already been locked; drives the escalating
+    // lockout duration (1min -> 5min -> 1h -> 24h) in LockoutPolicy
+    @Column(name = "lock_stage", nullable = false)
+    @Builder.Default
+    private int lockStage = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+    // --- end login lockout tracking ---
 
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

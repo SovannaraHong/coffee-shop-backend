@@ -180,54 +180,93 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void login(UserLoginRequest request, HttpServletRequest httpServletRequest) {
         String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElse(null);
 
-        if (auditLogService.isIpSuspicious(ip)) {
-            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
-                    "Blocked: IP flagged as suspicious (too many recent failures)", httpServletRequest);
-        }
-
-        ipLoginAttemptService.checkNotBanned(ip);
-
-        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        /*
+         * Email + password combination is invalid.
+         * Use IP protection.
+         */
         if (user == null) {
-            ipLoginAttemptService.registerFailedAttempt(ip);
-            throw new BadRequestException("Invalid email or password");
-        }
-        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
-            long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), user.getLockedUntil());
 
-            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
-                    "Account is locked", httpServletRequest);
+            ipLoginAttemptService.checkNotBanned(ip);
+            ipLoginAttemptService.registerFailedAttempt(ip);
+            auditLogService.log(AuditEventType.LOGIN_FAILED,
+                    request.getEmail(),
+                    false,
+                    "Invalid email or password",
+                    httpServletRequest
+            );
+            throw new BadRequestException(
+                    "Invalid email or password"
+            );
+        }
+
+        /*
+
+         * Do NOT check IP.
+         *
+         * Use your existing account lock flow.
+         */
+
+        if (user.getLockedUntil() != null
+                && user.getLockedUntil().isAfter(LocalDateTime.now())) {
+
+            long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), user.getLockedUntil()) + 1;
+
+            auditLogService.log(
+                    AuditEventType.LOGIN_FAILED,
+                    request.getEmail(),
+                    false,
+                    "Account is locked",
+                    httpServletRequest
+            );
 
             throw new BadRequestException(
-                    "Account locked due to too many failed attempts. Try again in " + minutesLeft + " minutes."
-            );
+                    "Account locked due to too many failed attempts. "
+                            + "Try again in "
+                            + minutesLeft
+                            + " minutes.");
         }
 
+        /*
+         * Authenticate password
+         */
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()));
+
         } catch (UsernameNotFoundException | BadCredentialsException e) {
+
+            /*
+             * Email EXISTS but password is WRONG.
+             *
+             * ONLY account lock.
+             *
+             * 5 wrong → 1 minute
+             * 1 wrong → 5 minutes
+             * 1 wrong → 1 hour
+             * 1 wrong → 24 hours
+             */
+
             loginAttemptService.registerFailedAttempt(user.getId());
-            ipLoginAttemptService.registerFailedAttempt(ip);
-            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
-                    "Invalid credentials", httpServletRequest);
+
+            // IMPORTANT:
+            // No ipLoginAttemptService here.
+            auditLogService.log(
+                    AuditEventType.LOGIN_FAILED, request.getEmail(), false, "Invalid credentials", httpServletRequest);
             throw new BadRequestException("Invalid email or password");
         } catch (DisabledException e) {
-            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
-                    "Account deactivated", httpServletRequest);
+            auditLogService.log(
+                    AuditEventType.LOGIN_FAILED,
+                    request.getEmail(), false, "Account deactivated", httpServletRequest);
             throw new BadRequestException("This account has been deactivated");
         }
-
-        user.setFailedLoginAttempts(0);
-        user.setLockedUntil(null);
-        userRepository.save(user);
-        ipLoginAttemptService.resetAttempts(ip);
-
-        auditLogService.log(AuditEventType.LOGIN_SUCCESS, request.getEmail(), true,
-                "Credentials verified, OTP sent", httpServletRequest);
-
+//         Password correct → OTP
+        auditLogService.log(AuditEventType.LOGIN_SUCCESS, request.getEmail(),
+                true, "Credentials verified, OTP sent", httpServletRequest);
         otpService.generateAndSendOtp(request.getEmail());
     }
 
@@ -256,29 +295,96 @@ public class UserServiceImpl implements UserService {
                 "Logged out of all devices (" + sessions.size() + " sessions revoked)", null);
     }
 
+    //    @Override
+//    @Transactional
+//    public StaffTokenResponse verifyLoginOtp(VerifyOtpRequest request, HttpServletRequest httpServletRequest) {
+//        String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
+//        ipLoginAttemptService.checkNotBanned(ip);
+//
+//        User user = userRepository.findByEmail(request.getEmail())
+//                .orElseThrow(() -> new BadRequestException("Invalid email"));
+//
+//        if (!user.getIsActive()) {
+//            throw new BadRequestException("This account has been deactivated");
+//        }
+//
+//        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
+//            long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), user.getLockedUntil()) + 1;
+//            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false,
+//                    "Account is locked", httpServletRequest);
+//            throw new BadRequestException(
+//                    "Account locked due to too many failed attempts. Try again in " + minutesLeft + " minutes."
+//            );
+//        }
+//
+//        try {
+//            otpService.verifyOtp(request.getEmail(), request.getCode());
+//        } catch (RuntimeException e) {
+//            loginAttemptService.registerFailedAttempt(user.getId());   // was missing
+//            ipLoginAttemptService.registerFailedAttempt(ip);           // was missing
+//            auditLogService.log(AuditEventType.OTP_FAILED, request.getEmail(), false,
+//                    e.getMessage(), httpServletRequest);
+//            throw e;
+//        }
+//
+//        loginAttemptService.resetAttempts(user.getId());
+//        ipLoginAttemptService.resetAttempts(ip);
+//        auditLogService.log(AuditEventType.OTP_VERIFIED, request.getEmail(), true,
+//                "OTP verified successfully", httpServletRequest);
+//
+//        String userAgent = DeviceFingerprintUtil.extractDeviceInfo(httpServletRequest);
+//        String fingerprint = DeviceFingerprintUtil.fingerprint(userAgent, ip);
+//        String sessionId = UUID.randomUUID().toString();
+//
+//        UserSession session = UserSession.builder()
+//                .sessionId(sessionId)
+//                .user(user)
+//                .deviceInfo(userAgent)
+//                .ipAddress(ip)
+//                .createdAt(LocalDateTime.now())
+//                .lastUsedAt(LocalDateTime.now())
+//                .revoked(false)
+//                .build();
+//        userSessionRepository.save(session);
+//
+//        AuthUser authUser = new AuthUser(user);
+//        String accessToken = jwtService.generateAccessToken(authUser, sessionId, fingerprint);
+//        String refreshToken = jwtService.generateRefreshToken(authUser, sessionId, fingerprint);
+//
+//        return StaffTokenResponse.builder()
+//                .accessToken(accessToken)
+//                .refreshToken(refreshToken)
+//                .tokenType("Bearer")
+//                .user(userMapper.toResponse(user))
+//                .build();
+//    }
     @Override
     @Transactional
     public StaffTokenResponse verifyLoginOtp(VerifyOtpRequest request, HttpServletRequest httpServletRequest) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BadRequestException("Invalid email"));
+        String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
+        ipLoginAttemptService.checkNotBanned(ip);
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new BadRequestException("Invalid email"));
         if (!user.getIsActive()) {
             throw new BadRequestException("This account has been deactivated");
-        }
+        } /* * Check account lock. */
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
+            long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), user.getLockedUntil()) + 1;
+            auditLogService.log(AuditEventType.LOGIN_FAILED, request.getEmail(), false, "Account is locked", httpServletRequest);
+            throw new BadRequestException("Account locked due to too many failed attempts. " + "Try again in " + minutesLeft + " minutes.");
+        } /* * Verify OTP. * * Wrong OTP does NOT increase the * password login lock stage. */
         try {
             otpService.verifyOtp(request.getEmail(), request.getCode());
         } catch (RuntimeException e) {
-            auditLogService.log(AuditEventType.OTP_FAILED, request.getEmail(), false,
-                    e.getMessage(), httpServletRequest);
+            auditLogService.log(AuditEventType.OTP_FAILED, request.getEmail(), false, e.getMessage(), httpServletRequest);
             throw e;
-        }
-        auditLogService.log(AuditEventType.OTP_VERIFIED, request.getEmail(), true,
-                "OTP verified successfully", httpServletRequest);
-
+        } /* * Password + OTP are both correct. * * Reset account login lock state. */
+        loginAttemptService.resetAttempts(user.getId());
+        ipLoginAttemptService.resetAttempts(ip);
+        auditLogService.
+                log(AuditEventType.OTP_VERIFIED, request.getEmail(), true, "OTP verified successfully", httpServletRequest);
         String userAgent = DeviceFingerprintUtil.extractDeviceInfo(httpServletRequest);
-        String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
         String fingerprint = DeviceFingerprintUtil.fingerprint(userAgent, ip);
         String sessionId = UUID.randomUUID().toString();
-
         UserSession session = UserSession.builder()
                 .sessionId(sessionId)
                 .user(user)
@@ -286,20 +392,17 @@ public class UserServiceImpl implements UserService {
                 .ipAddress(ip)
                 .createdAt(LocalDateTime.now())
                 .lastUsedAt(LocalDateTime.now())
-                .revoked(false)
-                .build();
+                .revoked(false).build();
         userSessionRepository.save(session);
-
         AuthUser authUser = new AuthUser(user);
         String accessToken = jwtService.generateAccessToken(authUser, sessionId, fingerprint);
         String refreshToken = jwtService.generateRefreshToken(authUser, sessionId, fingerprint);
-
         return StaffTokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
-                .user(userMapper.toResponse(user))
-                .build();
+                .user(userMapper.toResponse(user)).
+                build();
     }
 
     @Override
@@ -370,6 +473,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("User", id));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
+        user.setLockStage(0);
 
         auditLogService.log(AuditEventType.ACCOUNT_LOCKED, user.getEmail(), true,
                 "Account manually unlocked by admin", null);

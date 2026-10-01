@@ -48,6 +48,10 @@ public class User extends CreatedAuditable {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "lock_stage", nullable = false)
+    @Builder.Default
+    private int lockStage = 0;
+
     @Column(name = "failed_login_attempts", nullable = false)
     @Builder.Default
     private Integer failedLoginAttempts = 0;

@@ -145,7 +145,12 @@
             <scope>runtime</scope>
         </dependency>
 
-
+        <!--        rate limiting-->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>8.20.0</version>
+        </dependency>
         <!--        -->
 
         <dependency>
