@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     Optional<Recipe> findByProductVariantId(Long variantId);
+    boolean existsByProductVariantId(Long variantId);
 }

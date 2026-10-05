@@ -16,6 +16,7 @@ import com.coffee_shop.coffee_shop.specification.Order.OrderFilter;
 import com.coffee_shop.coffee_shop.specification.Order.OrderSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
 import com.coffee_shop.coffee_shop.util.enums.OrderStatus;
+import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final AddonRepository addonRepository;
     private final RecipeRepository recipeRepository;
     private final IngredientRepository ingredientRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
     private final OrderMapper orderMapper;
     private final TelegramNotificationService telegramNotificationService;
 
@@ -139,6 +141,14 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
             throw new IllegalStateException("Cannot cancel an order that is already " + order.getStatus());
         }
+
+        // If stock was already deducted (order was PREPARING, READY, or DELIVERING), restore/refund it!
+        if (order.getStatus() == OrderStatus.PREPARING
+                || order.getStatus() == OrderStatus.READY
+                || order.getStatus() == OrderStatus.DELIVERING) {
+            restoreStockForOrder(order);
+        }
+
         order.setStatus(OrderStatus.CANCELLED);
         return orderMapper.toResponse(orderRepository.save(order));
     }
@@ -148,6 +158,10 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse markPreparing(Long id) {
         Order order = getRequiredOrder(id);
         requireStatus(order, OrderStatus.CONFIRMED, "moved to preparing");
+
+        // Cut stock right when the order status moves to PREPARING
+        deductStockForOrder(order);
+
         order.setStatus(OrderStatus.PREPARING);
         return orderMapper.toResponse(orderRepository.save(order));
     }
@@ -178,14 +192,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Order must be READY or DELIVERING to be completed");
         }
 
-        for (OrderDetail detail : order.getOrderDetails()) {
-            deductIngredientsForVariant(detail.getProductVariant(), detail.getQuantity());
-
-            for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
-                deductIngredientsForAddon(addonLine.getAddon(), addonLine.getQuantity());
-            }
-        }
-
+        // Stock was already cut at PREPARING, so just complete the order
         order.setStatus(OrderStatus.COMPLETED);
         return orderMapper.toResponse(orderRepository.save(order));
     }
@@ -281,6 +288,37 @@ public class OrderServiceImpl implements OrderService {
         return total;
     }
 
+    // ==========================================
+    // Stock Deduction and Restoration Logic
+    // ==========================================
+
+    private void deductStockForOrder(Order order) {
+        // Step 1: Pre-validate all items so partial deduction does not occur if stock is insufficient
+        for (OrderDetail detail : order.getOrderDetails()) {
+            validateVariantIngredients(detail.getProductVariant(), detail.getQuantity());
+            for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
+                validateAddonIngredients(addonLine.getAddon(), addonLine.getQuantity());
+            }
+        }
+
+        // Step 2: Deduct ingredients for variants and addons
+        for (OrderDetail detail : order.getOrderDetails()) {
+            deductIngredientsForVariant(order, detail.getProductVariant(), detail.getQuantity());
+            for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
+                deductIngredientsForAddon(order, addonLine.getAddon(), addonLine.getQuantity());
+            }
+        }
+    }
+
+    private void restoreStockForOrder(Order order) {
+        for (OrderDetail detail : order.getOrderDetails()) {
+            restoreIngredientsForVariant(order, detail.getProductVariant(), detail.getQuantity());
+            for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
+                restoreIngredientsForAddon(order, addonLine.getAddon(), addonLine.getQuantity());
+            }
+        }
+    }
+
     // ---- Variant (Recipe-based) stock handling ----
 
     private void validateVariantIngredients(Variant variant, int orderQuantity) {
@@ -293,13 +331,23 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private void deductIngredientsForVariant(Variant variant, int orderQuantity) {
+    private void deductIngredientsForVariant(Order order, Variant variant, int orderQuantity) {
         Optional<Recipe> recipeOpt = recipeRepository.findByProductVariantId(variant.getId());
         if (recipeOpt.isEmpty()) {
             return;
         }
         for (RecipeIngredient ri : recipeOpt.get().getRecipeIngredients()) {
-            deduct(ri.getIngredient(), ri.getQuantityRequired(), orderQuantity);
+            deduct(order, ri.getIngredient(), ri.getQuantityRequired(), orderQuantity, "Variant: " + variant.getName());
+        }
+    }
+
+    private void restoreIngredientsForVariant(Order order, Variant variant, int orderQuantity) {
+        Optional<Recipe> recipeOpt = recipeRepository.findByProductVariantId(variant.getId());
+        if (recipeOpt.isEmpty()) {
+            return;
+        }
+        for (RecipeIngredient ri : recipeOpt.get().getRecipeIngredients()) {
+            restore(order, ri.getIngredient(), ri.getQuantityRequired(), orderQuantity, "Variant: " + variant.getName());
         }
     }
 
@@ -311,13 +359,19 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private void deductIngredientsForAddon(Addon addon, int orderQuantity) {
+    private void deductIngredientsForAddon(Order order, Addon addon, int orderQuantity) {
         for (AddonIngredient ai : addon.getAddonIngredients()) {
-            deduct(ai.getIngredient(), ai.getQuantityRequired(), orderQuantity);
+            deduct(order, ai.getIngredient(), ai.getQuantityRequired(), orderQuantity, "Addon: " + addon.getName());
         }
     }
 
-    // ---- Shared ingredient math ----
+    private void restoreIngredientsForAddon(Order order, Addon addon, int orderQuantity) {
+        for (AddonIngredient ai : addon.getAddonIngredients()) {
+            restore(order, ai.getIngredient(), ai.getQuantityRequired(), orderQuantity, "Addon: " + addon.getName());
+        }
+    }
+
+    // ---- Shared ingredient math and transaction logging ----
 
     private void checkAvailable(Ingredient ingredient, BigDecimal quantityPerUnit, int orderQuantity) {
         BigDecimal totalNeeded = quantityPerUnit.multiply(BigDecimal.valueOf(orderQuantity));
@@ -326,13 +380,41 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private void deduct(Ingredient ingredient, BigDecimal quantityPerUnit, int orderQuantity) {
+    private void deduct(Order order, Ingredient ingredient, BigDecimal quantityPerUnit, int orderQuantity, String itemDescription) {
         BigDecimal totalNeeded = quantityPerUnit.multiply(BigDecimal.valueOf(orderQuantity));
         if (ingredient.getQuantityInStock().compareTo(totalNeeded) < 0) {
             throw new BadRequestException("Insufficient stock for ingredient: " + ingredient.getName());
         }
         ingredient.setQuantityInStock(ingredient.getQuantityInStock().subtract(totalNeeded));
-        ingredientRepository.save(ingredient);
+        Ingredient saved = ingredientRepository.save(ingredient);
+
+        InventoryTransaction transaction = InventoryTransaction.builder()
+                .ingredient(saved)
+                .transactionType(TransactionType.OUT)
+                .quantity(totalNeeded)
+                .referenceType("ORDER")
+                .referenceId(order.getId())
+                .transactionDate(LocalDateTime.now())
+                .notes("Deducted for Order #" + order.getOrderNumber() + " (" + itemDescription + ")")
+                .build();
+        inventoryTransactionRepository.save(transaction);
+    }
+
+    private void restore(Order order, Ingredient ingredient, BigDecimal quantityPerUnit, int orderQuantity, String itemDescription) {
+        BigDecimal totalRefund = quantityPerUnit.multiply(BigDecimal.valueOf(orderQuantity));
+        ingredient.setQuantityInStock(ingredient.getQuantityInStock().add(totalRefund));
+        Ingredient saved = ingredientRepository.save(ingredient);
+
+        InventoryTransaction transaction = InventoryTransaction.builder()
+                .ingredient(saved)
+                .transactionType(TransactionType.IN)
+                .quantity(totalRefund)
+                .referenceType("ORDER_CANCEL")
+                .referenceId(order.getId())
+                .transactionDate(LocalDateTime.now())
+                .notes("Restored from cancelled Order #" + order.getOrderNumber() + " (" + itemDescription + ")")
+                .build();
+        inventoryTransactionRepository.save(transaction);
     }
 
 
