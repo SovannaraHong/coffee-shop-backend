@@ -16,7 +16,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -40,6 +39,11 @@ public class CategoryController {
 //        return ResponseEntity.status(HttpStatus.OK).body(categories);
 //    }
 
+
+    @GetMapping
+    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
+        return ResponseEntity.status(HttpStatus.OK).body(categoryService.getCategories());
+    }
 
     @Operation(
             summary = "Get category by ID",
@@ -147,7 +151,7 @@ public class CategoryController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Categories retrieved successfully")
     })
-    @GetMapping
+    @GetMapping("/pagination")
     public ResponseEntity<?> getCategories(
             @RequestParam Map<String, String> params) {
 
@@ -175,26 +179,12 @@ public class CategoryController {
             @ApiResponse(responseCode = "202", description = "Image uploaded successfully"),
             @ApiResponse(responseCode = "404", description = "Category not found")
     })
-    @PatchMapping("/{id}/image")
-    public ResponseEntity<CategoryResponse> uploadImage(
+
+    @PutMapping("/{id}/image")
+    public ResponseEntity<CategoryResponse> uploadProductImage(
             @PathVariable Long id,
-            @RequestPart("image") MultipartFile file) throws IOException {
-
-        Category categoryId = categoryService.findById(id);
-
-        if (categoryId.getImageUrl() != null &&
-                categoryId.getImageUrl().startsWith("https://")) {
-
-            s3Service.deleteFile(categoryId.getImageUrl());
-        }
-
-        String url = s3Service.uploadFile(file, "category_images");
-
-        CategoryResponse categoryResponse = categoryService.updateImage(id, url);
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(categoryResponse);
-
+            @RequestPart("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(categoryService.uploadImage(id, file));
     }
 
 

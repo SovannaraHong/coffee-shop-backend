@@ -63,10 +63,30 @@ telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN}
   chat-id: ${TELEGRAM_CHAT_ID}
 
-#jwt:
-#  secret: ${JWT_SECRET}
-#  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
-jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS}
-  refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS}
+security:
+  oauth2:
+    resourceserver:
+      jwt:
+        issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/myrealm}
+
+keycloak:
+  base-url: ${KEYCLOAK_BASE_URL:http://localhost:8081}
+  realm: ${KEYCLOAK_REALM:myrealm}
+  admin-client-id: coffee-backend
+  admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+  # ADDED (2026-10-08): frontend client used for verifyPassword() — must have "Direct Access Grants" ON in Keycloak
+  # Go to Keycloak → Clients → admin-web → Settings → Direct Access Grants → Enabled
+  user-client-id: ${KEYCLOAK_USER_CLIENT_ID:admin-web}
+
+
+  customer-login-client-id: customer-login
+  customer-login-client-secret: ${KEYCLOAK_CUSTOMER_LOGIN_SECRET}
+
+
+  staff-login-client-id: staff-login
+  staff-login-client-secret: ${KEYCLOAK_STAFF_LOGIN_SECRET}
+
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:4201}

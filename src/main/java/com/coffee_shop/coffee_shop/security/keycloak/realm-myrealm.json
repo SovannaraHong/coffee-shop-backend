@@ -1,0 +1,134 @@
+{
+  "realm": "myrealm",
+  "enabled": true,
+  "displayName": "Coffee Shop",
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "permanentLockout": false,
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(8) and notUsername",
+  "clients": [
+    {
+      "clientId": "customer-web",
+      "name": "Customer web (Angular)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:4200",
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      }
+    },
+    {
+      "clientId": "admin-web",
+      "name": "Admin web (Angular)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:4201",
+      "redirectUris": [
+        "http://localhost:4201/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4201"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4201/*"
+      }
+    },
+    {
+      "clientId": "coffee-backend",
+      "name": "Coffee backend (admin API access)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "kdfhskjh34298t7wjdfhwi3785wikuerhw",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "id": "a2c11d8d-26c1-4117-b8b7-48bbe40695f9",
+      "username": "rapewpew372@gmail.com",
+      "email": "rapewpew372@gmail.com",
+      "firstName": "System",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "coffee_apsora123",
+          "temporary": true
+        }
+      ],
+      "requiredActions": [
+        "CONFIGURE_TOTP"
+      ]
+    },
+    {
+      "id": "066e6c55-6204-4821-b1f2-544d666ddc72",
+      "username": "imzenya5266@gmail.com",
+      "email": "imzenya5266@gmail.com",
+      "firstName": "System",
+      "lastName": "Administrator",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "coffee_apsora123",
+          "temporary": true
+        }
+      ],
+      "requiredActions": [
+        "CONFIGURE_TOTP"
+      ]
+    },
+    {
+      "username": "service-account-coffee-backend",
+      "enabled": true,
+      "serviceAccountClientId": "coffee-backend",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "view-realm"
+        ]
+      }
+    }
+  ]
+}

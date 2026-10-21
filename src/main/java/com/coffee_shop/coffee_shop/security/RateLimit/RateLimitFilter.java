@@ -20,11 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Map<String, Integer> LIMITED_PATHS = Map.of(
+            "/api/me", 60,
             "/api/auth/login", 10,
-            "/api/auth/verify-otp", 10,
-            "/api/staff-auth/login", 10,
-            "/api/staff-auth/verify-otp", 10,
-            "/api/staff-auth/refresh", 20
+            "/api/auth/register", 5,
+            "/api/auth/forgot-password", 5,
+            "/api/auth/refresh", 30
     );
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 

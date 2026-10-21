@@ -20,6 +20,7 @@ import com.coffee_shop.coffee_shop.specification.purchaseOrder.PurchaseOrderFilt
 import com.coffee_shop.coffee_shop.specification.purchaseOrder.PurchaseOrderSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
 import com.coffee_shop.coffee_shop.util.enums.PurchaseOrderStatus;
+import com.coffee_shop.coffee_shop.util.enums.StockReferenceType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -169,7 +170,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         for (PurchaseOrderDetail detail : purchaseOrder.getPurchaseOrderDetails()) {
             StockAdjustRequest stockRequest = new StockAdjustRequest();
             stockRequest.setQuantity(detail.getQuantity());
-            stockRequest.setReferenceType("PURCHASE_ORDER");
+            stockRequest.setReferenceType(StockReferenceType.PURCHASE_ORDER);
             stockRequest.setReferenceId(purchaseOrder.getId());
             stockRequest.setNotes("Received from PO #" + purchaseOrder.getId());
 

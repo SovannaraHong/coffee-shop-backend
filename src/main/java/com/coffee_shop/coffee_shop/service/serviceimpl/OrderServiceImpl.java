@@ -26,7 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +51,14 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse create(OrderCreateRequest request) {
+        // 1. Validate that the order contains at least one item
+        if (request.getDetails() == null || request.getDetails().isEmpty()) {
+            throw new BadRequestException(
+                    "An order must contain at least one item"
+            );
+        }
+
+
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Customer", request.getCustomerId()));
 
@@ -131,8 +142,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = getRequiredOrder(id);
         requireStatus(order, OrderStatus.PENDING, "confirmed");
         order.setStatus(OrderStatus.CONFIRMED);
+        telegramNotificationService.sendMessage(buildOrderTelegramMessage(order, order.getCustomer()));
         return orderMapper.toResponse(orderRepository.save(order));
     }
+
 
     @Override
     @Transactional
@@ -201,6 +214,24 @@ public class OrderServiceImpl implements OrderService {
     // Private helpers
     // =========================
 
+
+    private Recipe getRequiredRecipe(Variant variant) {
+        Recipe recipe = recipeRepository.findByProductVariantId(variant.getId())
+                .orElseThrow(() -> new BadRequestException(
+                        "This variant is currently unavailable because no recipe is configured: "
+                                + variant.getName()
+                ));
+        if (recipe.getRecipeIngredients() == null
+                || recipe.getRecipeIngredients().isEmpty()) {
+            throw new BadRequestException(
+                    "This variant is currently unavailable because its recipe has no ingredients: "
+                            + variant.getName()
+            );
+        }
+
+        return recipe;
+    }
+
     private Order getRequiredOrder(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Order", id));
@@ -251,22 +282,46 @@ public class OrderServiceImpl implements OrderService {
         return details;
     }
 
-    private Set<OrderDetailAddon> buildAddons(OrderDetail detail, List<OrderDetailAddonRequest> requests) {
+
+    private Set<OrderDetailAddon> buildAddons(
+            OrderDetail detail,
+            List<OrderDetailAddonRequest> requests
+    ) {
         Set<OrderDetailAddon> addons = new HashSet<>();
-
         for (OrderDetailAddonRequest req : requests) {
-            Addon addon = addonRepository.findById(req.getAddonId())
-                    .orElseThrow(() -> ResourceNotFoundException.notFoundException("Addon", req.getAddonId()));
+            Addon addon = addonRepository.findById(req.getAddonId()).orElseThrow(() ->
+                    ResourceNotFoundException.notFoundException("Addon", req.getAddonId())
+            );
 
-            validateAddonIngredients(addon, req.getQuantity());
+            // Quantity of this add-on for ONE drink
+            int quantityPerDrink = req.getQuantity();
 
+            if (quantityPerDrink <= 0) {
+                throw new BadRequestException(
+                        "Add-on quantity must be greater than zero"
+                );
+            }
+
+            // Total add-on servings across the entire order line
+            int totalAddonQuantity = Math.multiplyExact(
+                    quantityPerDrink,
+                    detail.getQuantity()
+            );
+
+            // Validate stock for all drinks in this order line
+            validateAddonIngredients(addon, totalAddonQuantity);
+
+            // Add-on price per serving × total servings
             BigDecimal unitPrice = addon.getPrice();
-            BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(req.getQuantity()));
+            BigDecimal subtotal = unitPrice.multiply(
+                    BigDecimal.valueOf(totalAddonQuantity)
+            );
 
             OrderDetailAddon orderDetailAddon = OrderDetailAddon.builder()
                     .orderDetail(detail)
                     .addon(addon)
-                    .quantity(req.getQuantity())
+                    // Store quantity PER DRINK
+                    .quantity(quantityPerDrink)
                     .unitPrice(unitPrice)
                     .subtotal(subtotal)
                     .build();
@@ -293,63 +348,110 @@ public class OrderServiceImpl implements OrderService {
     // ==========================================
 
     private void deductStockForOrder(Order order) {
-        // Step 1: Pre-validate all items so partial deduction does not occur if stock is insufficient
+
+        // Step 1: Validate all drink ingredients and add-on ingredients.
+        // Do this before deducting any stock.
+
         for (OrderDetail detail : order.getOrderDetails()) {
             validateVariantIngredients(detail.getProductVariant(), detail.getQuantity());
+
             for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
-                validateAddonIngredients(addonLine.getAddon(), addonLine.getQuantity());
+
+                int totalAddonQuantity = Math.multiplyExact(
+                        addonLine.getQuantity(),
+                        detail.getQuantity()
+                );
+
+                validateAddonIngredients(
+                        addonLine.getAddon(),
+                        totalAddonQuantity
+                );
             }
         }
 
-        // Step 2: Deduct ingredients for variants and addons
+        // Step 2: Deduct stock using the same quantities validated above.
+
         for (OrderDetail detail : order.getOrderDetails()) {
-            deductIngredientsForVariant(order, detail.getProductVariant(), detail.getQuantity());
+
+            deductIngredientsForVariant(
+                    order,
+                    detail.getProductVariant(),
+                    detail.getQuantity()
+            );
+
             for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
-                deductIngredientsForAddon(order, addonLine.getAddon(), addonLine.getQuantity());
+
+                int totalAddonQuantity = Math.multiplyExact(
+                        addonLine.getQuantity(),
+                        detail.getQuantity()
+                );
+
+                deductIngredientsForAddon(
+                        order,
+                        addonLine.getAddon(),
+                        totalAddonQuantity
+                );
             }
         }
     }
 
     private void restoreStockForOrder(Order order) {
+
         for (OrderDetail detail : order.getOrderDetails()) {
-            restoreIngredientsForVariant(order, detail.getProductVariant(), detail.getQuantity());
+
+            restoreIngredientsForVariant(
+                    order, detail.getProductVariant(), detail.getQuantity()
+            );
             for (OrderDetailAddon addonLine : detail.getOrderDetailAddons()) {
-                restoreIngredientsForAddon(order, addonLine.getAddon(), addonLine.getQuantity());
+
+                int totalAddonQuantity = Math.multiplyExact(
+                        addonLine.getQuantity(), detail.getQuantity());
+                restoreIngredientsForAddon(order, addonLine.getAddon(), totalAddonQuantity
+                );
             }
         }
     }
 
     // ---- Variant (Recipe-based) stock handling ----
 
+
     private void validateVariantIngredients(Variant variant, int orderQuantity) {
-        Optional<Recipe> recipeOpt = recipeRepository.findByProductVariantId(variant.getId());
-        if (recipeOpt.isEmpty()) {
-            return; // no recipe -> not ingredient-tracked, always orderable
-        }
-        for (RecipeIngredient ri : recipeOpt.get().getRecipeIngredients()) {
-            checkAvailable(ri.getIngredient(), ri.getQuantityRequired(), orderQuantity);
+        Recipe recipe = getRequiredRecipe(variant);
+
+        for (RecipeIngredient ri : recipe.getRecipeIngredients()) {
+            checkAvailable(ri.getIngredient(), ri.getQuantityRequired(), orderQuantity
+            );
         }
     }
+
 
     private void deductIngredientsForVariant(Order order, Variant variant, int orderQuantity) {
-        Optional<Recipe> recipeOpt = recipeRepository.findByProductVariantId(variant.getId());
-        if (recipeOpt.isEmpty()) {
-            return;
-        }
-        for (RecipeIngredient ri : recipeOpt.get().getRecipeIngredients()) {
-            deduct(order, ri.getIngredient(), ri.getQuantityRequired(), orderQuantity, "Variant: " + variant.getName());
+        Recipe recipe = getRequiredRecipe(variant);
+        for (RecipeIngredient ri : recipe.getRecipeIngredients()) {
+            deduct(
+                    order,
+                    ri.getIngredient(),
+                    ri.getQuantityRequired(),
+                    orderQuantity,
+                    "Variant: " + variant.getName()
+            );
         }
     }
 
+
     private void restoreIngredientsForVariant(Order order, Variant variant, int orderQuantity) {
-        Optional<Recipe> recipeOpt = recipeRepository.findByProductVariantId(variant.getId());
-        if (recipeOpt.isEmpty()) {
-            return;
-        }
-        for (RecipeIngredient ri : recipeOpt.get().getRecipeIngredients()) {
-            restore(order, ri.getIngredient(), ri.getQuantityRequired(), orderQuantity, "Variant: " + variant.getName());
+        Recipe recipe = getRequiredRecipe(variant);
+        for (RecipeIngredient ri : recipe.getRecipeIngredients()) {
+            restore(
+                    order,
+                    ri.getIngredient(),
+                    ri.getQuantityRequired(),
+                    orderQuantity,
+                    "Variant: " + variant.getName()
+            );
         }
     }
+
 
     // ---- Addon (AddonIngredient-based) stock handling ----
 

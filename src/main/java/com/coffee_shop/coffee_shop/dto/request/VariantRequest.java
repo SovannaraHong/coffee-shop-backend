@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 @Data
 public class VariantRequest {
-
+    private Long id;
     @NotEmpty(message = "Variant name is required.")
     private String name;
 

@@ -96,5 +96,11 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.changeProductStatus(id));
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
+    @PatchMapping("/{id}/feature")
+    public ResponseEntity<ProductResponse> changeFeature(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(productService.changeFeatureStatus(id));
+    }
+
 
 }

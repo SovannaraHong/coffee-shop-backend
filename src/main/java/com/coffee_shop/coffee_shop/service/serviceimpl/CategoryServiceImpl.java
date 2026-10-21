@@ -5,24 +5,32 @@ import com.coffee_shop.coffee_shop.dto.response.CategoryDetailResponse;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
+import com.coffee_shop.coffee_shop.exception.FileValidationException;
+import com.coffee_shop.coffee_shop.exception.ImageUploadException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.CategoryDetailMapper;
 import com.coffee_shop.coffee_shop.mapper.CategoryMapper;
 import com.coffee_shop.coffee_shop.repository.CategoryRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
+import com.coffee_shop.coffee_shop.service.S3Service;
 import com.coffee_shop.coffee_shop.specification.category.CategoryFilter;
 import com.coffee_shop.coffee_shop.specification.category.CategorySpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
@@ -30,6 +38,12 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
     private final CategoryDetailMapper categoryDetailMapper;
+    private final S3Service s3Service;
+
+    private static final long MAX_IMAGE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/png", "image/jpeg", "image/webp"
+    );
 
     @Transactional(readOnly = true)
     @Override
@@ -96,15 +110,62 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.findAll(categorySpec, pageable).map(categoryMapper::toResponse);
     }
 
-    @Transactional
+
     @Override
-    public CategoryResponse updateImage(Long id, String imageUrl) {
-        Category categoryId = findById(id);
+    public CategoryResponse uploadImage(Long id, MultipartFile file) throws IOException {
+        validateImageFile(file);
 
-        categoryId.setImageUrl(imageUrl);
-        return categoryMapper.toResponse(categoryRepository.save(categoryId));
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
+        String oldUrl = category.getImageUrl();
 
+        // Upload first — never destroy the old image before the new one is confirmed
+        String newUrl;
+        try {
+            newUrl = s3Service.uploadFile(file, "product_images");
+        } catch (IOException e) {
+            log.error("Failed to upload image for product {}", id, e);
+            throw new ImageUploadException("Failed to upload image, please try again", e);
+        }
+
+        category.setImageUrl(newUrl);
+        Category saved;
+        try {
+            saved = categoryRepository.save(category);
+        } catch (Exception e) {
+            log.error("Failed to save image URL for product {}, cleaning up orphaned upload", id, e);
+            safeDelete(newUrl);
+            throw e;
+        }
+
+        // Only now clean up the old image, and only if it's actually ours
+        if (oldUrl != null && s3Service.isManagedUrl(oldUrl)) {
+            safeDelete(oldUrl);
+        }
+
+        return categoryMapper.toResponse(saved);
+    }
+
+    private void safeDelete(String url) {
+        try {
+            s3Service.deleteFile(url);
+        } catch (Exception e) {
+            log.warn("Failed to delete image at {}", url, e);
+        }
+    }
+
+    private void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new FileValidationException("File is empty");
+        }
+        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
+            throw new FileValidationException("File exceeds 5MB limit");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new FileValidationException("Only PNG, JPEG, or WEBP images are allowed");
+        }
     }
 
     @Transactional(readOnly = true)

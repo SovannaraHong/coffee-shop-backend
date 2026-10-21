@@ -1,8 +1,10 @@
 package com.coffee_shop.coffee_shop.repository;
 
 import com.coffee_shop.coffee_shop.entity.Ingredient;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +17,8 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long>, J
 
     @Query("SELECT I FROM Ingredient I WHERE I.quantityInStock<=I.reorderLevel")
     List<Ingredient> findLowStockIngredient();
+
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Ingredient> findWithLockById(Long id);
 }

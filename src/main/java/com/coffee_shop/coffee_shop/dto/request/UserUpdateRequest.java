@@ -8,7 +8,7 @@ public class UserUpdateRequest {
     private String fullName;
     private String email;
 
-    private String password;
+//    private String password;
 
     private Long roleId;
 }

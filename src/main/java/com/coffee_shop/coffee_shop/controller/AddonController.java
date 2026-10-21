@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,6 +40,7 @@ public class AddonController {
             @ApiResponse(responseCode = "201", description = "Addon created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid addon data")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PostMapping
     public ResponseEntity<AddonResponse> create(
             @Valid @RequestBody AddonCreateRequest request) {
@@ -63,6 +65,7 @@ public class AddonController {
             @ApiResponse(responseCode = "400", description = "Invalid addon data"),
             @ApiResponse(responseCode = "404", description = "Addon not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}")
     public ResponseEntity<AddonResponse> update(
             @PathVariable Long id,
@@ -85,6 +88,7 @@ public class AddonController {
             @ApiResponse(responseCode = "204", description = "Addon deleted successfully"),
             @ApiResponse(responseCode = "404", description = "Addon not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable Long id) {
@@ -151,6 +155,7 @@ public class AddonController {
             @ApiResponse(responseCode = "200", description = "Addon status changed successfully"),
             @ApiResponse(responseCode = "404", description = "Addon not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<AddonResponse> changeStatus(
             @PathVariable Long id) {

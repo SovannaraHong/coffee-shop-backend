@@ -1,6 +1,5 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
-
 import com.coffee_shop.coffee_shop.dto.request.IngredientCreateRequest;
 import com.coffee_shop.coffee_shop.dto.request.IngredientUpdateRequest;
 import com.coffee_shop.coffee_shop.dto.request.StockAdjustRequest;
@@ -19,6 +18,7 @@ import com.coffee_shop.coffee_shop.service.IngredientService;
 import com.coffee_shop.coffee_shop.specification.ingredient.IngredientFilter;
 import com.coffee_shop.coffee_shop.specification.ingredient.IngredientSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
+import com.coffee_shop.coffee_shop.util.enums.StockReferenceType;
 import com.coffee_shop.coffee_shop.util.enums.TransactionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,10 +32,20 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
 public class IngredientServiceImpl implements IngredientService {
+
+    /**
+     * Reasons allowed when stock goes UP / DOWN (same rules as the screen)
+     */
+    private static final Set<StockReferenceType> ADD_REASONS =
+            Set.of(StockReferenceType.PURCHASE_ORDER, StockReferenceType.MANUAL);
+    private static final Set<StockReferenceType> REMOVE_REASONS =
+            Set.of(StockReferenceType.WASTE, StockReferenceType.MANUAL);
+
     private final IngredientRepository ingredientRepository;
     private final IngredientMapping ingredientMapping;
     private final InventoryTransactionRepository inventoryTransactionRepository;
@@ -48,7 +58,6 @@ public class IngredientServiceImpl implements IngredientService {
         if (inName.isPresent()) {
             throw BadRequestException.alreadyExits("ingredient", inName.get().getId(), request.getName());
         }
-
 
         Ingredient entity = ingredientMapping.toEntity(request);
         return ingredientMapping.toResponse(ingredientRepository.save(entity));
@@ -69,7 +78,6 @@ public class IngredientServiceImpl implements IngredientService {
 
         Ingredient saved = ingredientRepository.save(ingredientById);
         return ingredientMapping.toResponse(saved);
-
     }
 
     @Transactional
@@ -85,7 +93,6 @@ public class IngredientServiceImpl implements IngredientService {
         return ingredientRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException
                         .notFoundException("Ingredient", id));
-
     }
 
     @Transactional(readOnly = true)
@@ -96,8 +103,6 @@ public class IngredientServiceImpl implements IngredientService {
                 .stream()
                 .map(ingredientMapping::toResponse)
                 .toList();
-
-
     }
 
     @Transactional(readOnly = true)
@@ -110,17 +115,23 @@ public class IngredientServiceImpl implements IngredientService {
         IngredientSpec spec = new IngredientSpec(filter);
         Pageable pageable = PageUtil.getPageable(params);
         return ingredientRepository.findAll(spec, pageable).map(ingredientMapping::toResponse);
-
     }
 
+    // ------------------------------------------------------------------
+    // ADD: you know how much came in.
+    // Stored in: ingredient.quantity_in_stock + inventory_transaction (IN)
+    // ------------------------------------------------------------------
     @Transactional
     @Override
     public IngredientResponse increaseStock(Long id, StockAdjustRequest request) {
-        Ingredient ingredientById = getIngredientById(id);
-        BigDecimal newStock = ingredientById.getQuantityInStock().add(request.getQuantity());
-        ingredientById.setQuantityInStock(newStock);
+        if (!ADD_REASONS.contains(request.getReferenceType())) {
+            throw new BadRequestException("Reason " + request.getReferenceType()
+                    + " cannot be used when adding stock. Use PURCHASE_ORDER or MANUAL.");
+        }
 
-        Ingredient saved = ingredientRepository.save(ingredientById);
+        Ingredient ingredient = getForUpdate(id);
+        ingredient.setQuantityInStock(ingredient.getQuantityInStock().add(request.getQuantity()));
+        Ingredient saved = ingredientRepository.save(ingredient);
 
         createInventoryTransaction(
                 saved,
@@ -133,18 +144,26 @@ public class IngredientServiceImpl implements IngredientService {
         return ingredientMapping.toResponse(saved);
     }
 
+    // ------------------------------------------------------------------
+    // REMOVE: stock left outside of a sale (waste, spoilage...).
+    // Stored in: ingredient.quantity_in_stock + inventory_transaction (OUT)
+    // ------------------------------------------------------------------
     @Transactional
     @Override
     public IngredientResponse decreaseStock(Long id, StockAdjustRequest request) {
-        Ingredient ingredientId = getIngredientById(id);
-        if (ingredientId.getQuantityInStock().compareTo(request.getQuantity()) < 0) {
-            throw BadRequestException.insufficientStock(ingredientId.getName(), ingredientId.getQuantityInStock(), request.getQuantity());
+        if (!REMOVE_REASONS.contains(request.getReferenceType())) {
+            throw new BadRequestException("Reason " + request.getReferenceType()
+                    + " cannot be used when removing stock. Use WASTE or MANUAL.");
         }
-        BigDecimal subtract = ingredientId.getQuantityInStock().subtract(request.getQuantity());
-        ingredientId.setQuantityInStock(subtract);
-        Ingredient saved = ingredientRepository.save(ingredientId);
 
-//
+        Ingredient ingredient = getForUpdate(id);
+        if (ingredient.getQuantityInStock().compareTo(request.getQuantity()) < 0) {
+            throw BadRequestException.insufficientStock(
+                    ingredient.getName(), ingredient.getQuantityInStock(), request.getQuantity());
+        }
+        ingredient.setQuantityInStock(ingredient.getQuantityInStock().subtract(request.getQuantity()));
+        Ingredient saved = ingredientRepository.save(ingredient);
+
         createInventoryTransaction(
                 saved,
                 request.getQuantity(),
@@ -153,53 +172,53 @@ public class IngredientServiceImpl implements IngredientService {
                 request.getReferenceId(),
                 request.getNotes()
         );
-
-        return ingredientMapping.toResponse(ingredientId);
+        return ingredientMapping.toResponse(saved);
     }
 
+    // ------------------------------------------------------------------
+    // SET EXACT: you counted the shelf and the system number is wrong.
+    // Stored in: ingredient.quantity_in_stock
+    //          + stock_adjustment (old, new, notes)
+    //          + inventory_transaction (IN or OUT for the difference, MANUAL)
+    // ------------------------------------------------------------------
     @Transactional
     @Override
     public IngredientResponse adjustStock(Long id, StockSetRequest request) {
-        Ingredient ingredientById = getIngredientById(id);
+        Ingredient ingredient = getForUpdate(id);
 
-        BigDecimal oldStock = ingredientById.getQuantityInStock();
+        BigDecimal oldStock = ingredient.getQuantityInStock();
         BigDecimal newStock = request.getNewQuantity();
 
-        ingredientById.setQuantityInStock(newStock);
-        Ingredient saved = ingredientRepository.save(ingredientById);
+        if (oldStock.compareTo(newStock) == 0) {
+            return ingredientMapping.toResponse(ingredient); // nothing changed, nothing to record
+        }
 
-        StockAdjustment stockAdjustment = StockAdjustment.builder()
+        ingredient.setQuantityInStock(newStock);
+        Ingredient saved = ingredientRepository.save(ingredient);
+
+        // 1) count log
+        stockAdjustmentRepository.save(StockAdjustment.builder()
                 .ingredient(saved)
                 .oldQuantity(oldStock)
                 .newQuantity(newStock)
                 .notes(request.getNotes())
-                .build();
-        stockAdjustmentRepository.save(stockAdjustment);
+                .build());
+
+        // 2) history row for the difference
+        BigDecimal diff = newStock.subtract(oldStock);
+        createInventoryTransaction(
+                saved,
+                diff.abs(),
+                diff.signum() > 0 ? TransactionType.IN : TransactionType.OUT,
+                StockReferenceType.MANUAL,
+                null,
+                "Stock count correction (" + oldStock.stripTrailingZeros().toPlainString()
+                        + " -> " + newStock.stripTrailingZeros().toPlainString() + "): "
+                        + request.getNotes()
+        );
 
         return ingredientMapping.toResponse(saved);
     }
-
-//    @Override
-//    public IngredientResponse importStock(Long id, StockImportRequest request) {
-//        Ingredient ingredient = getIngredientById(id);
-//
-//        BigDecimal oldStock = ingredient.getQuantityInStock();
-//        BigDecimal newStock = oldStock.add(request.getQuantity());
-//
-//        ingredient.setQuantityInStock(newStock);
-//        Ingredient saved = ingredientRepository.save(ingredient);
-//
-//        StockAdjustment stockAdjustment = StockAdjustment.builder()
-//                .ingredient(saved)
-//                .oldQuantity(oldStock)
-//                .currentStock(newStock)
-//                .newQuantity(request.getQuantity())
-//                .notes(request.getNotes())
-//                .build();
-//        stockAdjustmentRepository.save(stockAdjustment);
-//
-//        return ingredientMapping.toResponse(saved);
-//    }
 
     @Transactional(readOnly = true)
     @Override
@@ -226,21 +245,33 @@ public class IngredientServiceImpl implements IngredientService {
         return ingredientMapping.toResponse(ingredientRepository.save(ingredientById));
     }
 
+    // ------------------------------------------------------------------
+    // helpers
+    // ------------------------------------------------------------------
+
+    /**
+     * Loads the ingredient and locks the row until the transaction ends.
+     */
+    private Ingredient getForUpdate(Long id) {
+        return ingredientRepository.findWithLockById(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Ingredient", id));
+    }
 
     private void createInventoryTransaction(
             Ingredient ingredient,
             BigDecimal quantity,
             TransactionType type,
-            String referenceType,
+            StockReferenceType referenceType,
             Long referenceId,
             String notes
     ) {
-
         InventoryTransaction transaction = InventoryTransaction.builder()
                 .ingredient(ingredient)
                 .quantity(quantity)
                 .transactionType(type)
-                .referenceType(referenceType)
+                .referenceType(referenceType != null
+                        ? referenceType.name()
+                        : StockReferenceType.MANUAL.name())
                 .referenceId(referenceId)
                 .notes(notes)
                 .transactionDate(LocalDateTime.now())

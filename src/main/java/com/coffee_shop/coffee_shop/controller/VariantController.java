@@ -40,7 +40,8 @@ public class VariantController {
     }
 
     @GetMapping("/pagination")
-    public ResponseEntity<PageDTO<VariantResponse>> getPagination(Map<String, String> params) {
+    public ResponseEntity<PageDTO<VariantResponse>> getPagination(
+            @RequestParam Map<String, String> params) {
         Page<VariantResponse> pagination = variantService.getPagination(params);
         return ResponseEntity.ok().body(new PageDTO<>(pagination));
     }

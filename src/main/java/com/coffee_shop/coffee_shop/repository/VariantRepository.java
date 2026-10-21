@@ -17,5 +17,10 @@ public interface VariantRepository extends JpaRepository<Variant, Long>, JpaSpec
 
     List<Variant> findByProductId(Long id);
 
+    boolean existsBySkuAndProductIdNot(String sku, Long productId);
+
+
+    Optional<Variant> findBySkuIgnoreCase(String sku);
+
     Optional<Variant> findByProductIdAndNameIgnoreCase(Long productId, String name);
 }

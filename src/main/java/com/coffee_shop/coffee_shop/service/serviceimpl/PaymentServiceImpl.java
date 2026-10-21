@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
 import com.coffee_shop.coffee_shop.client.CutLuyClient;
+import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.response.CutLuyPaymentResponse;
 import com.coffee_shop.coffee_shop.dto.response.PaymentResponse;
 import com.coffee_shop.coffee_shop.entity.Order;
@@ -11,16 +12,24 @@ import com.coffee_shop.coffee_shop.repository.OrderRepository;
 import com.coffee_shop.coffee_shop.repository.PaymentRepository;
 import com.coffee_shop.coffee_shop.service.PaymentService;
 import com.coffee_shop.coffee_shop.service.TelegramNotificationService;
+import com.coffee_shop.coffee_shop.specification.payment.PaymentFilter;
+import com.coffee_shop.coffee_shop.specification.payment.PaymentSpec;
+import com.coffee_shop.coffee_shop.util.PageUtil;
 import com.coffee_shop.coffee_shop.util.enums.OrderStatus;
 import com.coffee_shop.coffee_shop.util.enums.PaymentMethod;
 import com.coffee_shop.coffee_shop.util.enums.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -82,6 +91,32 @@ public class PaymentServiceImpl implements PaymentService {
                 cutLuyPayment.checkout_url(),
                 cutLuyPayment.qr_string()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAll() {
+        return paymentRepository.findAll(Sort.by(Sort.Direction.DESC, "id"))
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageDTO<PaymentResponse> getPagination(Map<String, String> params) {
+        PaymentFilter filter = new PaymentFilter();
+        if (params.containsKey("id")) filter.setId(Long.parseLong(params.get("id")));
+        if (params.containsKey("orderId")) filter.setOrderId(Long.parseLong(params.get("orderId")));
+        if (params.containsKey("method")) filter.setMethod(PaymentMethod.valueOf(params.get("method").toUpperCase()));
+        if (params.containsKey("status")) filter.setStatus(PaymentStatus.valueOf(params.get("status").toUpperCase()));
+        if (params.containsKey("transactionRef")) filter.setTransactionRef(params.get("transactionRef"));
+
+        PaymentSpec spec = new PaymentSpec(filter);
+        Pageable pageable = PageUtil.getPageable(params);
+        Page<PaymentResponse> page = paymentRepository.findAll(spec, pageable).map(this::toResponse);
+
+        return new PageDTO<>(page);
     }
 
     @Override

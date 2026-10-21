@@ -15,7 +15,9 @@ import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.mapper.VariantMapper;
 import com.coffee_shop.coffee_shop.repository.AddonRepository;
+import com.coffee_shop.coffee_shop.repository.OrderDetailRepository;
 import com.coffee_shop.coffee_shop.repository.ProductRepository;
+import com.coffee_shop.coffee_shop.repository.RecipeRepository;
 import com.coffee_shop.coffee_shop.repository.VariantRepository;
 import com.coffee_shop.coffee_shop.service.CategoryService;
 import com.coffee_shop.coffee_shop.service.ProductService;
@@ -45,7 +47,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-
     private static final long MAX_IMAGE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/png", "image/jpeg", "image/webp"
@@ -56,6 +57,8 @@ public class ProductServiceImpl implements ProductService {
     private final VariantMapper variantMapper;
     private final CategoryService categoryService;
     private final VariantRepository variantRepository;
+    private final RecipeRepository recipeRepository;
+    private final OrderDetailRepository orderDetailRepository;
     private final S3Service s3Service;
 
     private final AddonRepository addonRepository;
@@ -68,9 +71,6 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse create(ProductRequest productRequest) {
-//        if (productRepository.existsByName(productRequest.getName())) {
-//            throw BadRequestException.alreadyExits("Product", productRequest., productRequest.getName());
-//        }
         Optional<Product> exits = productRepository.findByNameIgnoreCase(productRequest.getName());
 
         if (exits.isPresent()) {
@@ -96,6 +96,7 @@ public class ProductServiceImpl implements ProductService {
         product.setIsActive(productRequest.getIsActive() != null ? productRequest.getIsActive() : true);
         product.setFeatured(productRequest.getFeatured() != null ? productRequest.getFeatured() : true);
 
+        // CHANGED: LinkedHashSet instead of Collectors.toSet() (HashSet) to keep insertion order
         Set<Variant> variants = productRequest.getVariants().stream()
                 .map(v -> {
                     Variant variant = variantMapper.toEntity(v);
@@ -103,7 +104,7 @@ public class ProductServiceImpl implements ProductService {
                     variant.setProduct(product);
                     return variant;
                 })
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         product.setVariants(variants);
         product.setAddons(resolveAddons(productRequest.getAddonIds()));
@@ -116,24 +117,34 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     @Override
     public ProductResponse update(Long id, ProductRequest productRequest) {
-        Product proId = findById(id);
-        Category cateId = categoryService.findById(productRequest.getCategoryId());
-        if (!proId.getName().equals(productRequest.getName())) {
-            boolean b = productRepository.existsByName(productRequest.getName());
-            if (b) {
-                throw new
-                        ResourceNotFoundException("Product with name " + productRequest.getName() +
-                        " already exists");
-            }
+        Product product = productRepository.findByIdWithVariants(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
+        Category category = categoryService.findById(productRequest.getCategoryId());
 
+        // CHANGED: duplicate-name check is now case-insensitive (same as create())
+        // and throws BadRequestException (400) instead of ResourceNotFoundException (404).
+        if (!product.getName().equalsIgnoreCase(productRequest.getName())) {
+            Optional<Product> duplicate = productRepository.findByNameIgnoreCase(productRequest.getName());
+            if (duplicate.isPresent() && !duplicate.get().getId().equals(product.getId())) {
+                throw new BadRequestException(
+                        "Product with name " + productRequest.getName() + " already exists");
+            }
         }
 
-        productMapper.updateEntity(proId, productRequest);
-        proId.setCategory(cateId);
-        proId.setAddons(resolveAddons(productRequest.getAddonIds()));
+        productMapper.updateEntity(product, productRequest);
+        product.setCategory(category);
+        product.setAddons(resolveAddons(productRequest.getAddonIds()));
+        syncVariants(product, productRequest.getVariants());
 
-        return productMapper.toResponse(productRepository.save(proId));
+        productRepository.save(product);
+        productRepository.flush();
 
+        // Reload from DB so the response reflects the true persisted state.
+        // Without this, Hibernate returns the stale in-memory object and the
+        // removed variants are still present in product.getVariants().
+        Product fresh = productRepository.findByIdWithVariants(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
+        return productMapper.toResponse(fresh);
     }
 
     @Override
@@ -166,11 +177,11 @@ public class ProductServiceImpl implements ProductService {
         if (cache != null) {
             PageDTO<ProductResponse> cached = cache.get(key, PageDTO.class);
             if (cached != null) {
-                log.info("✅ CACHE HIT: {}", key);
+                log.info("CACHE HIT: {}", key);
                 return cached;
             }
         }
-        log.info(" CACHE MISS: {}", key);
+        log.info("CACHE MISS: {}", key);
 
         ProductFilter productFilter = new ProductFilter();
         if (params.containsKey("name")) productFilter.setName(params.get("name"));
@@ -193,7 +204,6 @@ public class ProductServiceImpl implements ProductService {
     public Product findById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
-
     }
 
     @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
@@ -202,8 +212,6 @@ public class ProductServiceImpl implements ProductService {
     public void delete(Long id) {
         Product byId = findById(id);
         productRepository.delete(byId);
-
-
     }
 
     @Override
@@ -217,7 +225,7 @@ public class ProductServiceImpl implements ProductService {
 
         String oldUrl = product.getImageUrl();
 
-        // Upload first — never destroy the old image before the new one is confirmed
+        // Upload first: never destroy the old image before the new one is confirmed
         String newUrl;
         try {
             newUrl = s3Service.uploadFile(file, "product_images");
@@ -274,21 +282,28 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(productRepository.save(byId));
     }
 
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
+    @Transactional
+    @Override
+    public ProductResponse changeFeatureStatus(Long id) {
+        Product byId = findById(id);
+        byId.setFeatured(!byId.getFeatured());
+        return productMapper.toResponse(productRepository.save(byId));
+    }
+
 
     @Transactional(readOnly = true)
     @Override
     public List<ProductResponse> findProductByCategoryId(Long id) {
-
-        Category categoryId = categoryService.findById(id);
-        if (Objects.isNull(categoryId)) {
+        Category category = categoryService.findById(id);
+        if (Objects.isNull(category)) {
             throw new ResourceNotFoundException("No Category found.");
         }
-        List<Product> byCategoryId = productRepository.findByCategoryId(categoryId.getId());
+        List<Product> byCategoryId = productRepository.findByCategoryId(category.getId());
         if (byCategoryId.isEmpty()) {
             throw new ResourceNotFoundException("Not found product.");
         }
         return byCategoryId.stream().map(productMapper::toResponse).toList();
-
     }
 
 
@@ -310,11 +325,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Transactional(readOnly = true)
-    //TODO WITH SELL TABLE
+    // TODO WITH SELL TABLE
     @Override
     public List<ProductResponse> findBestSellingProducts() {
-        List<Product> all = productRepository.findAll();
-
+        // CHANGED: removed the unused productRepository.findAll() call (it loaded every product for nothing)
         return List.of();
     }
 
@@ -328,7 +342,96 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
     }
 
-    //helper method
+    // helper method
+
+    private void syncVariants(Product product, List<VariantRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new BadRequestException("A product needs at least one variant");
+        }
+
+        // 1. Validate before touching entities
+        Set<String> seen = new HashSet<>();
+        for (VariantRequest r : requests) {
+            String sku = r.getSku().trim();
+            if (!seen.add(sku.toLowerCase())) {
+                throw new BadRequestException("Duplicate SKU in request: " + sku);
+            }
+            if (variantRepository.existsBySkuAndProductIdNot(sku, product.getId())) {
+                throw new BadRequestException("SKU already used by another product: " + sku);
+            }
+        }
+
+        Map<Long, Variant> byId = product.getVariants().stream()
+                .collect(Collectors.toMap(Variant::getId, v -> v));
+        Map<String, Variant> bySku = product.getVariants().stream()
+                .filter(v -> v.getSku() != null)
+                .collect(Collectors.toMap(v -> v.getSku().toLowerCase(), v -> v));
+
+        // 2. Decide which existing variant each request maps to
+        Map<VariantRequest, Variant> matched = new IdentityHashMap<>();
+        Set<Long> keepIds = new HashSet<>();
+        for (VariantRequest r : requests) {
+            Variant v = null;
+            if (r.getId() != null) {
+                v = byId.get(r.getId());
+                if (v == null) {
+                    throw new ResourceNotFoundException(
+                            "Variant " + r.getId() + " does not belong to product " + product.getId());
+                }
+            } else {
+                v = bySku.get(r.getSku().trim().toLowerCase()); // fallback when id is missing
+            }
+            if (v != null) {
+                matched.put(r, v);
+                keepIds.add(v.getId());
+            }
+        }
+
+        // 3. Handle removed variants
+        //    - If a variant is referenced by an order_detail it CANNOT be deleted
+        //      (Oracle FK_ORDER_DETAIL_VARIANT). Deactivate it instead so history is preserved.
+        //    - If it only has a recipe (no orders), delete the recipe first, then the variant.
+        Set<Variant> variantsToRemove = product.getVariants().stream()
+                .filter(v -> !keepIds.contains(v.getId()))
+                .collect(Collectors.toSet());
+
+        for (Variant v : variantsToRemove) {
+            if (orderDetailRepository.existsByProductVariantId(v.getId())) {
+                // Has order history — cannot delete. Deactivate silently.
+                v.setIsActive(false);
+                keepIds.add(v.getId()); // keep it in the collection, just deactivated
+            } else {
+                // No order history — safe to delete. Remove recipe first.
+                recipeRepository.findByProductVariantId(v.getId())
+                        .ifPresent(recipeRepository::delete);
+            }
+        }
+
+        if (!variantsToRemove.isEmpty()) {
+            recipeRepository.flush();
+        }
+
+        product.getVariants().removeIf(v -> !keepIds.contains(v.getId()));
+        variantRepository.flush();
+
+        // 4. Update matched, insert the rest
+        for (VariantRequest r : requests) {
+            Variant v = matched.get(r);
+            if (v != null) {
+                v.setName(r.getName());
+                v.setPrice(r.getPrice());
+                v.setSku(r.getSku().trim());
+                if (r.getIsActive() != null) v.setIsActive(r.getIsActive());
+            } else {
+                Variant created = variantMapper.toEntity(r);
+                created.setIsActive(r.getIsActive() != null ? r.getIsActive() : true);
+                created.setSku(r.getSku().trim());
+                created.setProduct(product);
+                product.getVariants().add(created);
+            }
+        }
+    }
+
     private Set<Addon> resolveAddons(Set<Long> addonIds) {
         if (addonIds == null || addonIds.isEmpty()) {
             return new HashSet<>();
@@ -347,7 +450,6 @@ public class ProductServiceImpl implements ProductService {
         if (!inactive.isEmpty()) {
             String names = inactive.stream().map(Addon::getName).collect(Collectors.joining(", "));
             throw new BadRequestException("The following addon(s) are inactive and cannot be assigned: " + names);
-
         }
         return new HashSet<>(found);
     }

@@ -16,9 +16,9 @@ public class UserCreateRequest {
     @Email(message = "Invalid email")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
-    private String password;
+//    @NotBlank(message = "Password is required")
+//    @Size(min = 8, message = "Password must be at least 8 characters")
+//    private String password;
 
     @NotNull(message = "Role id is required")
     private Long roleId;
