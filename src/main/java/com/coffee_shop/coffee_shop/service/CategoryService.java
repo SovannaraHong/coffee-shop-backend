@@ -5,7 +5,9 @@ import com.coffee_shop.coffee_shop.dto.response.CategoryDetailResponse;
 import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +24,9 @@ public interface CategoryService {
 
     Page<CategoryResponse> getCategoriesPageable(Map<String, String> params);
 
-    CategoryResponse updateImage(Long id, String imageUrl);
+
+    CategoryResponse uploadImage(Long id, MultipartFile file) throws IOException;
+
 
     List<CategoryDetailResponse> findCategoryDetail(Long id);
 

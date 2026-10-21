@@ -1,144 +1,129 @@
 package com.coffee_shop.coffee_shop.service.serviceimpl;
 
-import com.coffee_shop.coffee_shop.dto.request.CustomerLoginRequest;
+import com.coffee_shop.coffee_shop.dto.request.ChangePasswordRequest;
 import com.coffee_shop.coffee_shop.dto.request.CustomerRegisterRequest;
 import com.coffee_shop.coffee_shop.dto.request.CustomerUpdateRequest;
-import com.coffee_shop.coffee_shop.dto.request.VerifyOtpRequest;
+import com.coffee_shop.coffee_shop.dto.request.ForgotPasswordRequest;
 import com.coffee_shop.coffee_shop.dto.response.CustomerResponse;
-import com.coffee_shop.coffee_shop.dto.response.LoginResponse;
 import com.coffee_shop.coffee_shop.entity.Customer;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
-import com.coffee_shop.coffee_shop.exception.TooManyRequestsException;
 import com.coffee_shop.coffee_shop.mapper.CustomerMapper;
 import com.coffee_shop.coffee_shop.repository.CustomerRepository;
-import com.coffee_shop.coffee_shop.service.*;
-import com.coffee_shop.coffee_shop.util.DeviceFingerprintUtil;
+import com.coffee_shop.coffee_shop.security.keycloak.KeyCloakAdminService;
+import com.coffee_shop.coffee_shop.service.CustomerService;
 import com.coffee_shop.coffee_shop.util.enums.AuthProvider;
-import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
 public class CustomerServiceImpl implements CustomerService {
-    private static final String INVALID = "Invalid email or password";
-
-    private String dummyHash;   // not final, so Lombok leaves it out of the constructor
-
-    @PostConstruct
-    void init() {
-        dummyHash = passwordEncoder.encode("dummy-password-for-timing");
-    }
 
     private final CustomerRepository customerRepository;
     private final CustomerMapper mapper;
-    private final PasswordEncoder passwordEncoder;
-    private final OtpService otpService;
-    private final JwtService jwtService; // was JwtUtil — now unified
-    private final IpLoginAttemptService ipLoginAttemptService;
-    private final CustomerLoginAttemptService customerLoginAttemptService;
+    // ADDED (2026-10-08): needed for customer self-registration via Keycloak
+    private final KeyCloakAdminService keycloakAdminService;
 
-    @Transactional
+    /**
+     * ADDED (2026-10-08): Customer self-registration flow.
+     *
+     * Flow:
+     *   1. Check email not already taken in our DB.
+     *   2. Create user in Keycloak with the customer's own password + send VERIFY_EMAIL.
+     *   3. Save customer record in our DB (isVerified=false until email is clicked).
+     *   4. On DB failure → delete Keycloak user to avoid orphaned accounts.
+     *
+     * After clicking the verify link (Keycloak page, one click):
+     *   - Customer logs in → CustomerProvisioningService.getOrCreateCustomer() sets isVerified=true.
+     */
     @Override
+    @Transactional
     public CustomerResponse register(CustomerRegisterRequest request) {
+        // Guard: check our DB first to give a fast, clear error before touching Keycloak
         if (customerRepository.existsByEmail(request.getEmail())) {
-            throw BadRequestException.alreadyExits("Customer", request.getEmail());
+            throw new BadRequestException("Email is already registered");
         }
 
-        Customer customer = Customer.builder()
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .phone(request.getPhone())
-                .authProvider(AuthProvider.LOCAL)
-                .isVerified(false)
-                .isActive(true)
-                .build();
-        Customer save = customerRepository.save(customer);
-        otpService.generateAndSendOtp(customer.getEmail());
+        // Create in Keycloak: sets password + queues VERIFY_EMAIL action
+        String keycloakId = keycloakAdminService.registerCustomer(
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                request.getPassword()
+        );
 
-        return mapper.toResponse(save);
+        try {
+            // Save to our DB — isVerified stays false until the customer clicks the email link.
+            // CustomerProvisioningService.getOrCreateCustomer() will flip it to true on first login.
+            Customer saved = customerRepository.save(Customer.builder()
+                    .email(request.getEmail())
+                    .firstName(request.getFirstName())
+                    .lastName(request.getLastName())
+                    .phone(request.getPhone())               // optional — null if customer skipped it
+                    .keycloakId(keycloakId)
+                    .authProvider(AuthProvider.LOCAL)        // registered with email+password (not Google/Facebook)
+                    .isVerified(false)
+                    .isActive(true)
+                    .build());
+            return mapper.toResponse(saved);
+        } catch (RuntimeException e) {
+            // Rollback: delete the Keycloak user so we don't leave an orphan account
+            keycloakAdminService.deleteUser(keycloakId);
+            throw e;
+        }
     }
 
-    @Transactional
+    /**
+     * ADDED (2026-10-08): Forgot-password flow.
+     * Delegates entirely to Keycloak — no DB changes needed.
+     * Keycloak searches by email, sends UPDATE_PASSWORD email with a 1-day link.
+     * We always return 200 OK even if email not found (no email enumeration).
+     */
     @Override
-    public void verifyOtp(VerifyOtpRequest request) {
-        Customer customer = customerRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Customer"));
-        if (customer.getIsVerified()) {
-            throw new BadRequestException("Account is already verified");
-        }
-        otpService.verifyOtp(request.getEmail(), request.getCode());
-        customer.setIsVerified(true);
-        customerRepository.save(customer);
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // Delegates to KeyCloakAdminService.sendForgotPasswordEmail()
+        // which silently does nothing if the email is not registered in Keycloak
+        keycloakAdminService.sendForgotPasswordEmail(request.getEmail());
     }
 
-    @Transactional
+    /**
+     * ADDED (2026-10-08): Change-password flow for logged-in customer.
+     *
+     * Flow:
+     *   1. Verify currentPassword is correct by trying a Keycloak token grant.
+     *      If wrong → Keycloak returns 401 → we throw BadRequestException.
+     *   2. Call Keycloak reset-password API with the new password.
+     *
+     * @param keycloakId the customer's Keycloak UUID (JWT "sub" claim, passed from controller)
+     * @param request    contains currentPassword (for verification) and newPassword
+     */
     @Override
-    public LoginResponse login(CustomerLoginRequest request, HttpServletRequest httpServletRequest) {
-        String ip = DeviceFingerprintUtil.extractIp(httpServletRequest);
-        ipLoginAttemptService.checkNotBanned(ip); // 429 IP_BANNED
+    public void changePassword(String keycloakId, ChangePasswordRequest request) {
+        // Find the customer in our DB to get their email (needed to verify current password)
+        Customer customer = customerRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new BadRequestException("Customer not found"));
 
-        Customer customer = customerRepository.findByEmail(request.getEmail()).orElse(null);
-
-        if (customer == null) {
-            passwordEncoder.matches(request.getPassword(), dummyHash);  // same response time as a real check
-            ipLoginAttemptService.registerFailedAttempt(ip);            // unknown emails count against the IP
-            throw new BadRequestException(INVALID);
-        }
-        LocalDateTime now = LocalDateTime.now();
-        if (customer.getLockedUntil() != null && customer.getLockedUntil().isAfter(now)) {
-            long seconds = Math.max(1, ChronoUnit.SECONDS.between(now, customer.getLockedUntil()));
-            long minutes = (seconds + 59) / 60;
-            throw new TooManyRequestsException(
-                    TooManyRequestsException.ACCOUNT_LOCKED,
-                    "Account locked due to too many failed attempts. Try again in "
-                            + minutes + (minutes == 1 ? " minute." : " minutes."),
-                    seconds);
+        // Verify the current password is correct before allowing a change
+        // This prevents someone from changing the password on an unlocked phone
+        boolean valid = keycloakAdminService.verifyPassword(customer.getEmail(), request.getCurrentPassword());
+        if (!valid) {
+            throw new BadRequestException("Current password is incorrect");
         }
 
-        if (customer.getPassword() == null) {
-            throw new BadRequestException("This account uses social login. Please sign in with Google/Facebook.");
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), customer.getPassword())) {
-            customerLoginAttemptService.registerFailedAttempt(customer.getId()); // fixed: was missing
-            ipLoginAttemptService.registerFailedAttempt(ip);                    // fixed: was missing
-            throw new BadRequestException(INVALID);
-        }
-        if (!customer.getIsVerified()) {
-            throw new BadRequestException("Please verify your email before logging in");
-        }
-        if (!customer.getIsActive()) {
-            throw new BadRequestException("This account has been deactivated");
-        }
-
-        customerLoginAttemptService.resetAttempts(customer.getId()); // fixed: correct service now
-//        ipLoginAttemptService.resetAttempts(ip);
-
-        String token = jwtService.generateCustomerToken(customer.getId(), customer.getEmail());
-
-        return LoginResponse.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .customer(mapper.toResponse(customer))
-                .build();
+        // Current password confirmed — update to the new password in Keycloak
+        keycloakAdminService.resetPassword(keycloakId, request.getNewPassword());
     }
 
+    // Returns the logged-in customer's profile — called by GET /api/customers/me
     @Override
     @Transactional(readOnly = true)
     public CustomerResponse getProfile(Long id) {
         return mapper.toResponse(findRequired(id));
     }
 
+    // Updates the logged-in customer's own profile — called by PUT /api/customers/me
     @Override
     @Transactional
     public CustomerResponse updateProfile(Long id, CustomerUpdateRequest request) {
@@ -149,6 +134,7 @@ public class CustomerServiceImpl implements CustomerService {
         return mapper.toResponse(customerRepository.save(customer));
     }
 
+    // Shared helper — throws 404 if customer not found by id
     private Customer findRequired(Long id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Customer", id));

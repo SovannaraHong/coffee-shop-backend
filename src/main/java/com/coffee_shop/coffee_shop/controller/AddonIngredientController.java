@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,6 +41,7 @@ public class AddonIngredientController {
             @ApiResponse(responseCode = "400", description = "Invalid request data"),
             @ApiResponse(responseCode = "404", description = "Addon or ingredient not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PostMapping
     public ResponseEntity<AddonIngredientResponse> create(
             @PathVariable Long addonId,
@@ -65,6 +67,7 @@ public class AddonIngredientController {
             @ApiResponse(responseCode = "400", description = "Invalid request data"),
             @ApiResponse(responseCode = "404", description = "Addon ingredient not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @PutMapping("/{id}")
     public ResponseEntity<AddonIngredientResponse> update(
             @PathVariable Long id,
@@ -87,6 +90,7 @@ public class AddonIngredientController {
             @ApiResponse(responseCode = "204", description = "Addon ingredient deleted successfully"),
             @ApiResponse(responseCode = "404", description = "Addon ingredient not found")
     })
+    @PreAuthorize("hasAuthority('PRODUCT_MANAGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable Long id) {

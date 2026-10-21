@@ -14,11 +14,12 @@ import com.coffee_shop.coffee_shop.service.VariantService;
 import com.coffee_shop.coffee_shop.specification.variant.VariantFilter;
 import com.coffee_shop.coffee_shop.specification.variant.VariantSpec;
 import com.coffee_shop.coffee_shop.util.PageUtil;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,54 +37,53 @@ public class VariantServiceImpl implements VariantService {
 
     @Override
     @Transactional
-    public VariantResponse create(Long productId, VariantRequest variantRequest) {
+    public VariantResponse create(Long productId, VariantRequest request) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", productId));
 
-        Optional<Variant> existing = variantRepository.findByProductIdAndNameIgnoreCase(productId, variantRequest.getName());
-        if (existing.isPresent()) {
-            throw BadRequestException.alreadyExits("Variant", existing.get().getId(), variantRequest.getName());
-        }
+        request.setSku(normalizeSku(request.getSku()));
 
-        Variant entity = variantMapper.toEntity(variantRequest);
-        entity.setProduct(product); // ← the missing link
+        variantRepository.findByProductIdAndNameIgnoreCase(productId, request.getName())
+                .ifPresent(v -> {
+                    throw BadRequestException.alreadyExits("Variant", v.getId(), request.getName());
+                });
+        checkSkuFree(request.getSku(), null);
 
+        Variant entity = variantMapper.toEntity(request);
+        entity.setProduct(product);
         return variantMapper.toResponse(variantRepository.save(entity));
     }
 
     @Override
     @Transactional
-    public VariantResponse update(Long id, VariantRequest variantRequest) {
+    public VariantResponse update(Long id, VariantRequest request) {
         Variant variant = variantRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
 
+        request.setSku(normalizeSku(request.getSku()));
         Long productId = variant.getProduct().getId();
 
-        if (!variant.getName().equalsIgnoreCase(variantRequest.getName())) {
-            Optional<Variant> existing = variantRepository
-                    .findByProductIdAndNameIgnoreCase(productId, variantRequest.getName());
-            if (existing.isPresent()) {
-                throw BadRequestException.alreadyExits("Variant", existing.get().getId(), variantRequest.getName());
-            }
+        if (!variant.getName().equalsIgnoreCase(request.getName())) {
+            variantRepository.findByProductIdAndNameIgnoreCase(productId, request.getName())
+                    .ifPresent(v -> {
+                        throw BadRequestException.alreadyExits("Variant", v.getId(), request.getName());
+                    });
         }
+        checkSkuFree(request.getSku(), id);
 
-        variantMapper.updateEntity(variant, variantRequest); // apply new values — this was missing
+        variantMapper.updateEntity(variant, request);
         return variantMapper.toResponse(variantRepository.save(variant));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<VariantResponse> getAll() {
-        List<VariantResponse> all = variantRepository.findAll()
-                .stream()
-                .map(variantMapper::toResponse)
-                .toList();
-        if (all.isEmpty()) {
-            throw ResourceNotFoundException.notFoundException("Variant");
-        }
-        return all;
+        // an empty list is a valid answer (e.g. after deleting the last variant)
+        return variantRepository.findAll().stream().map(variantMapper::toResponse).toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<VariantResponse> getPagination(Map<String, String> params) {
         VariantFilter filter = new VariantFilter();
         if (params.containsKey("id")) filter.setId(Long.parseLong(params.get("id")));
@@ -91,10 +91,10 @@ public class VariantServiceImpl implements VariantService {
         VariantSpec variantSpec = new VariantSpec(filter);
         Pageable pageable = PageUtil.getPageable(params);
         return variantRepository.findAll(variantSpec, pageable).map(variantMapper::toResponse);
-
     }
 
     @Override
+    @Transactional(readOnly = true)
     public VariantResponse findById(Long id) {
         Variant variant = variantRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
@@ -102,43 +102,65 @@ public class VariantServiceImpl implements VariantService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<VariantResponse> findByProductId(Long productId) {
-        Product byId = productService.findById(productId);
-        return variantRepository
-                .findByProductId(byId.getId()).stream().map(variantMapper::toResponse).toList();
+        Product product = productService.findById(productId);
+        return variantRepository.findByProductId(product.getId())
+                .stream().map(variantMapper::toResponse).toList();
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
-        Variant variant = variantRepository
-                .findById(id)
-                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
-        variantRepository.delete(variant);
-
-
-    }
-
-    @Override
-    public VariantResponse changeStatus(Long id) {
-
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
-
-        variant.setIsActive(!variant.getIsActive());
-
-        Variant saved = variantRepository.save(variant);
-
-        return variantMapper.toResponse(saved);
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
+        try {
+            variantRepository.delete(variant);
+            variantRepository.flush(); // runs the SQL now, so a foreign key error is caught here
+        } catch (DataIntegrityViolationException e) {
+            throw new BadRequestException(
+                    "\"" + variant.getName() + "\" is used by orders or recipes and can't be deleted. "
+                            + "Deactivate it instead.");
+        }
     }
 
     @Override
+    @Transactional
+    public VariantResponse changeStatus(Long id) {
+        Variant variant = variantRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
+        variant.setIsActive(!Boolean.TRUE.equals(variant.getIsActive()));
+        return variantMapper.toResponse(variantRepository.save(variant));
+    }
+
+    @Override
+    @Transactional
     public VariantResponse updatePrice(Long id, BigDecimal price) {
         Variant variant = variantRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Variant not found"));
-
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Variant", id));
         variant.setPrice(price);
-        Variant save = variantRepository.save(variant);
+        return variantMapper.toResponse(variantRepository.save(variant));
+    }
 
-        return variantMapper.toResponse(save);
+    // ---------- helpers ----------
+
+    /**
+     * Blank -> null (SKU is optional), otherwise trimmed and upper case.
+     */
+    private String normalizeSku(String sku) {
+        return (sku == null || sku.isBlank()) ? null : sku.trim().toUpperCase();
+    }
+
+    /**
+     * The SKU column is unique across ALL products.
+     */
+    private void checkSkuFree(String sku, Long currentId) {
+        if (sku == null) return;
+        Optional<Variant> other = variantRepository.findBySkuIgnoreCase(sku);
+        if (other.isPresent() && !other.get().getId().equals(currentId)) {
+            throw new BadRequestException(
+                    "SKU " + sku + " is already used by \"" + other.get().getName()
+                            + "\" (" + other.get().getProduct().getName() + ").");
+        }
     }
 }

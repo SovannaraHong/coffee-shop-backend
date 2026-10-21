@@ -30,8 +30,10 @@ public class User extends CreatedAuditable {
     private String email;
 
 
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String password;
+    // Keycloak user id (the token's "sub" claim)
+    @Column(name = "keycloak_id", length = 36, unique = true)
+    private String keycloakId;
+
 
     @Column(nullable = true, length = 255)
     private String avatarUrl;

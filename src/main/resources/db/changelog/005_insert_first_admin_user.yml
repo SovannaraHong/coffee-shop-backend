@@ -27,8 +27,8 @@ databaseChangeLog:
                   name: email
                   type: STRING
               - column:
-                  header: password_hash
-                  name: password_hash
+                  header: keycloak_id
+                  name: keycloak_id
                   type: STRING
               - column:
                   header: role_id

@@ -2,10 +2,9 @@ package com.coffee_shop.coffee_shop.config;
 
 import com.coffee_shop.coffee_shop.entity.User;
 import com.coffee_shop.coffee_shop.repository.UserRepository;
-import com.coffee_shop.coffee_shop.security.auth.AuthUser;
+import com.coffee_shop.coffee_shop.security.keycloak.KeycloakAuthenticationToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.AuditorAware;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -22,15 +21,17 @@ public class AuditorAwareImpl implements AuditorAware<User> {
     public Optional<User> getCurrentAuditor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return Optional.empty();
+        if (authentication instanceof KeycloakAuthenticationToken token && token.getStaffId() != null) {
+            return Optional.of(userRepository.getReferenceById(token.getStaffId()));
         }
-
-        if (authentication.getPrincipal() instanceof AuthUser authUser) {
-            return userRepository.findById(authUser.getId());
-        }
+//
+//        if (authentication == null || !authentication.isAuthenticated() || authentication instanceof AnonymousAuthenticationToken) {
+//            return Optional.empty();
+//        }
+//
+//        if (authentication.getPrincipal() instanceof AuthUser authUser) {
+//            return userRepository.findById(authUser.getId());
+//        }
 
         return Optional.empty();
     }

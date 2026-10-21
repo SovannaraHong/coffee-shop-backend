@@ -17,6 +17,11 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     boolean existsByEmail(String email);
 
 
+    //    keycloak
+    Optional<Customer> findByKeycloakId(String keycloakId);
+
+    Optional<Customer> findByEmailIgnoreCase(String email);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Customer c where c.id = :id")
     Optional<Customer> findByIdForUpdate(@Param("id") Long id);

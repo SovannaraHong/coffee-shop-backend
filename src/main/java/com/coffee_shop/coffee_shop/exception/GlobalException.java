@@ -48,8 +48,20 @@ public class GlobalException {
     // ==============================
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return build(HttpStatus.CONFLICT, "A record with this value already exists.");
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String root = ex.getMostSpecificCause().getMessage();
+        String msg = "This action conflicts with existing data.";
+        if (root != null) {
+            if (root.contains("ORA-00001")) {
+                msg = "A record with the same unique value (for example a SKU) already exists.";
+            } else if (root.contains("ORA-02292")) {
+                msg = "This record is used elsewhere (for example in orders) and can't be deleted. Deactivate it instead.";
+            }
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "status", 409,
+                "message", msg,
+                "timestamp", java.time.LocalDateTime.now().toString()));
     }
 
     // ==============================

@@ -25,7 +25,6 @@ public class IngredientController {
     private final IngredientService ingredientService;
     private final IngredientMapping ingredientMapping;
 
-
     @PostMapping("/create")
     public ResponseEntity<IngredientResponse> create(@Valid @RequestBody IngredientCreateRequest request) {
         IngredientResponse ingredient = ingredientService.createIngredient(request);
@@ -33,13 +32,14 @@ public class IngredientController {
     }
 
     @PostMapping("/{id}/increment-stock")
-    public ResponseEntity<IngredientResponse> incrementStock(@PathVariable Long id, @Valid @RequestBody StockAdjustRequest request) {
-        IngredientResponse response = ingredientService.increaseStock(id, request);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    public ResponseEntity<IngredientResponse> incrementStock(@PathVariable Long id,
+                                                             @Valid @RequestBody StockAdjustRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ingredientService.increaseStock(id, request));
     }
 
     @PostMapping("/{id}/decrement-stock")
-    public ResponseEntity<IngredientResponse> decrementStock(@PathVariable Long id, @Valid @RequestBody StockAdjustRequest request) {
+    public ResponseEntity<IngredientResponse> decrementStock(@PathVariable Long id,
+                                                             @Valid @RequestBody StockAdjustRequest request) {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ingredientService.decreaseStock(id, request));
     }
 
@@ -48,17 +48,15 @@ public class IngredientController {
         return ResponseEntity.ok().body(ingredientMapping.toResponse(ingredientService.getIngredientById(id)));
     }
 
+    // CHANGED: added @Valid. IngredientUpdateRequest has @NotBlank/@Size rules that were never enforced.
     @PutMapping("/{id}/update")
-    public ResponseEntity<IngredientResponse> update(@PathVariable Long id, @RequestBody IngredientUpdateRequest request) {
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                ingredientService.updateIngredient(id, request)
-        );
+    public ResponseEntity<IngredientResponse> update(@PathVariable Long id,
+                                                     @Valid @RequestBody IngredientUpdateRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ingredientService.updateIngredient(id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
-
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         ingredientService.deleteIngredient(id);
         return ResponseEntity.noContent().build();
     }
@@ -68,25 +66,20 @@ public class IngredientController {
         return ResponseEntity.ok().body(ingredientService.getAllIngredients());
     }
 
+    // CHANGED: @PathVariable -> @RequestParam. This route has no path variables, so the old
+    // version could never receive ?page=1&size=10 style parameters.
     @GetMapping("/pagination")
-    public ResponseEntity<PageDTO<IngredientResponse>> getPagination(@PathVariable Map<String, String> params) {
+    public ResponseEntity<PageDTO<IngredientResponse>> getPagination(@RequestParam Map<String, String> params) {
         Page<IngredientResponse> pagination = ingredientService.getPagination(params);
         return ResponseEntity.ok().body(new PageDTO<>(pagination));
-
     }
 
+    // CHANGED: added @Valid so StockSetRequest's "notes are required" rule is enforced.
     @PostMapping("/{id}/adjust-stock")
-    public ResponseEntity<IngredientResponse> adjustStock(@PathVariable Long id, @RequestBody StockSetRequest request) {
-        IngredientResponse response = ingredientService.adjustStock(id, request);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    public ResponseEntity<IngredientResponse> adjustStock(@PathVariable Long id,
+                                                          @Valid @RequestBody StockSetRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ingredientService.adjustStock(id, request));
     }
-
-//    @PatchMapping("/{id}/import-stock")
-//    public ResponseEntity<IngredientResponse> importStock(
-//            @PathVariable Long id,
-//            @Valid @RequestBody StockImportRequest request) {
-//        return ResponseEntity.ok(ingredientService.importStock(id, request));
-//    }
 
     @GetMapping("/low-stock")
     public ResponseEntity<List<IngredientResponse>> getLowStock() {

@@ -30,9 +30,9 @@ public class Customer extends CreatedAuditable {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    // null when the customer only ever used Google/Facebook login
-    @Column(length = 255)
-    private String password;
+    // Keycloak user id (the token's "sub" claim)
+    @Column(name = "keycloak_id", length = 36, unique = true)
+    private String keycloakId;
 
     @Column(length = 20)
     private String phone;

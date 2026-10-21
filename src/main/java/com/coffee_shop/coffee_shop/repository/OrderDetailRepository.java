@@ -16,4 +16,6 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
                 AND od.order.status = com.coffee_shop.coffee_shop.util.enums.OrderStatus.COMPLETED
             """)
     boolean existsCompletedPurchase(@Param("customerId") Long customerId, @Param("productId") Long productId);
+
+    boolean existsByProductVariantId(Long variantId);
 }

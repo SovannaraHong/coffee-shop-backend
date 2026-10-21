@@ -97,7 +97,7 @@ databaseChangeLog:
             constraintName: uk_role_name
 
   # ============================================================
-  # 3. APP USER
+  # 3. APP USER (staff). Passwords live in Keycloak; keycloak_id = token "sub"
   # ============================================================
   - changeSet:
       id: 003_create_app_user
@@ -129,10 +129,8 @@ databaseChangeLog:
                     nullable: false
 
               - column:
-                  name: password_hash
-                  type: VARCHAR2(255)
-                  constraints:
-                    nullable: false
+                  name: keycloak_id
+                  type: VARCHAR2(36)
 
               - column:
                   name: avatar_url
@@ -190,6 +188,11 @@ databaseChangeLog:
             columnNames: email
             constraintName: uk_user_email
 
+        - addUniqueConstraint:
+            tableName: app_user
+            columnNames: keycloak_id
+            constraintName: uk_user_keycloak_id
+
         - createIndex:
             tableName: app_user
             indexName: idx_user_full_name
@@ -240,66 +243,7 @@ databaseChangeLog:
             constraintName: pk_role_permission
 
   # ============================================================
-  # 5. USER SESSION
-  # ============================================================
-  - changeSet:
-      id: 005_create_user_session
-      author: sovannaraHong@gmail.com
-      validCheckSum: ANY
-
-      changes:
-        - createTable:
-            tableName: user_session
-            columns:
-              - column:
-                  name: session_id
-                  type: VARCHAR2(36)
-                  constraints:
-                    primaryKey: true
-                    nullable: false
-
-              - column:
-                  name: user_id
-                  type: NUMBER(19)
-                  constraints:
-                    nullable: false
-
-              - column:
-                  name: device_info
-                  type: VARCHAR2(255)
-
-              - column:
-                  name: ip_address
-                  type: VARCHAR2(64)
-
-              - column:
-                  name: created_at
-                  type: TIMESTAMP
-                  constraints:
-                    nullable: false
-
-              - column:
-                  name: last_used_at
-                  type: TIMESTAMP
-                  constraints:
-                    nullable: false
-
-              - column:
-                  name: revoked
-                  type: BOOLEAN
-                  defaultValueBoolean: false
-                  constraints:
-                    nullable: false
-
-        - createIndex:
-            tableName: user_session
-            indexName: idx_session_user_id
-            columns:
-              - column:
-                  name: user_id
-
-  # ============================================================
-  # 6. FOREIGN KEYS
+  # 5. FOREIGN KEYS
   # ============================================================
   - changeSet:
       id: 006_create_security_foreign_keys
@@ -326,13 +270,6 @@ databaseChangeLog:
             baseColumnNames: permission_id
             constraintName: fk_role_permission_permission
             referencedTableName: permission
-            referencedColumnNames: id
-
-        - addForeignKeyConstraint:
-            baseTableName: user_session
-            baseColumnNames: user_id
-            constraintName: fk_session_user
-            referencedTableName: app_user
             referencedColumnNames: id
 
         - addForeignKeyConstraint:

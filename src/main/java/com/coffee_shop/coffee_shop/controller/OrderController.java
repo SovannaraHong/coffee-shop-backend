@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,16 +21,19 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    @PreAuthorize("hasRole('CUSTOMER') or hasAuthority('ORDER_MANAGE')")
     @PostMapping
     public ResponseEntity<OrderResponse> create(@Valid @RequestBody OrderCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.create(request));
     }
 
+    @PreAuthorize("hasAuthority('ORDER_MANAGE') or @accessGuard.ownsOrder(#id,authentication)")
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.findById(id));
     }
 
+    @PreAuthorize("hasAuthority('ORDER_MANAGE') or @accessGuard.isOwnCustomer(#customerId, authentication)")
     @GetMapping("/customer/{customerId}")
     public ResponseEntity<List<OrderResponse>> findByCustomerId(@PathVariable Long customerId) {
         return ResponseEntity.ok(orderService.findByCustomerId(customerId));
@@ -50,6 +54,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.confirm(id));
     }
 
+    @PreAuthorize("hasAuthority('ORDER_MANAGE') or @accessGuard.isOwnCustomer(#customerId, authentication)")
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<OrderResponse> cancel(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.cancel(id));

@@ -29,6 +29,8 @@ public interface ProductService {
 
     ProductResponse changeProductStatus(Long id);
 
+    ProductResponse changeFeatureStatus(Long id);
+
     List<ProductResponse> findProductByCategoryId(Long id);
 
     List<ProductResponse> findFeaturedProducts();

@@ -1,13 +1,9 @@
 package com.coffee_shop.coffee_shop.controller;
 
-import com.coffee_shop.coffee_shop.dto.request.RefreshTokenRequest;
-import com.coffee_shop.coffee_shop.dto.request.UserLoginRequest;
-import com.coffee_shop.coffee_shop.dto.request.VerifyOtpRequest;
-import com.coffee_shop.coffee_shop.dto.response.StaffTokenResponse;
-import com.coffee_shop.coffee_shop.exception.BadRequestException;
-import com.coffee_shop.coffee_shop.service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.coffee_shop.coffee_shop.security.keycloak.StaffAuthService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,49 +13,35 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-@RequestMapping("api/staff-auth")
 @RestController
+@RequestMapping("/api/auth/staff")
 @RequiredArgsConstructor
 public class StaffAuthController {
 
-    private final UserService userService;
+    public record StaffLoginRequest(@NotBlank @Email String email, @NotBlank String password, String otp) {
+    }
+
+    public record RefreshRequest(@NotBlank String refreshToken) {
+    }
+
+    private final StaffAuthService staffAuthService;
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody UserLoginRequest request,
-                                                     HttpServletRequest httpServletRequest) {
-        userService.login(request, httpServletRequest);
-        return ResponseEntity.ok(Map.of("message", "OTP sent to your email. Please verify to complete login."));
-    }
-
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
-            throw new BadRequestException("Missing or invalid Authorization header");
+    public ResponseEntity<?> login(@Valid @RequestBody StaffLoginRequest req) {
+        if (staffAuthService.otpRequired(req.email(), req.otp())) {
+            return ResponseEntity.ok(Map.of("otpRequired", true));   // UI shows the code screen
         }
-        String token = header.substring(7);
-        userService.logout(token);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/logout-all")
-    public ResponseEntity<Void> logoutAllDevices(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
-            throw new BadRequestException("Missing or invalid Authorization header");
-        }
-        String token = header.substring(7);
-        userService.logoutAllDevices(token);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/verify-otp")
-    public ResponseEntity<StaffTokenResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest request, HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(userService.verifyLoginOtp(request, httpServletRequest));
+        return ResponseEntity.ok(staffAuthService.login(req.email(), req.password(), req.otp()));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<StaffTokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpServletRequest) {
-        return ResponseEntity.ok(userService.refresh(request, httpServletRequest));
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
+        return ResponseEntity.ok(staffAuthService.refresh(req.refreshToken()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestBody RefreshRequest req) {
+        staffAuthService.logout(req.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 }
