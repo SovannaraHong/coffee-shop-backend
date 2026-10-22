@@ -55,15 +55,23 @@ databaseChangeLog:
                   name: updated_by
                   type: NUMERIC
 
+        # Make sure the single admin user (id=1) has the ADMIN role
         - sql:
             splitStatements: false
             sql: >
               UPDATE app_user
               SET role_id = (SELECT id FROM role WHERE name = 'ADMIN')
-              WHERE id IN (1, 2)
+              WHERE id = 1
+
+        # Remove the old second admin account if it still exists from a previous run
+        - sql:
+            splitStatements: false
+            sql: >
+              DELETE FROM app_user
+              WHERE email = 'imzenya5266@gmail.com'
 
       rollback:
         - sql:
             sql: |
               DELETE FROM app_user
-              WHERE id IN (1, 2);
+              WHERE id = 1;

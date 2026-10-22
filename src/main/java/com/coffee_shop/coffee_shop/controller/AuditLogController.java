@@ -28,17 +28,18 @@ public class AuditLogController {
 
     private final AuditRepository auditLogRepository;
 
-    @PreAuthorize("hasAuthority('AUDIT_LOG_VIEW')")
+    // ── READ — paginated search with filters ──────────────────────────────────
+    // Audit logs are immutable system records — only READ permission is needed
+    @PreAuthorize("hasAnyAuthority('AUDIT_LOG_READ', 'AUDIT_LOG_VIEW', 'AUDIT_LOG_MANAGE')")
     @GetMapping
     public ResponseEntity<PageDTO<AuditLogResponse>> search(@RequestParam Map<String, String> params) {
         AuditLogFilter filter = new AuditLogFilter();
-        if (params.containsKey("email")) filter.setEmail(params.get("email"));
-        if (params.containsKey("eventType"))
-            filter.setEventType(AuditEventType.valueOf(params.get("eventType").toUpperCase()));
-        if (params.containsKey("success")) filter.setSuccess(Boolean.valueOf(params.get("success")));
+        if (params.containsKey("email"))     filter.setEmail(params.get("email"));
+        if (params.containsKey("eventType")) filter.setEventType(AuditEventType.valueOf(params.get("eventType").toUpperCase()));
+        if (params.containsKey("success"))   filter.setSuccess(Boolean.valueOf(params.get("success")));
         if (params.containsKey("ipAddress")) filter.setIpAddress(params.get("ipAddress"));
-        if (params.containsKey("fromDate")) filter.setFromDate(LocalDateTime.parse(params.get("fromDate")));
-        if (params.containsKey("toDate")) filter.setToDate(LocalDateTime.parse(params.get("toDate")));
+        if (params.containsKey("fromDate"))  filter.setFromDate(LocalDateTime.parse(params.get("fromDate")));
+        if (params.containsKey("toDate"))    filter.setToDate(LocalDateTime.parse(params.get("toDate")));
 
         AuditLogSpec spec = new AuditLogSpec(filter);
         Pageable pageable = PageUtil.getPageable(params);
