@@ -6,15 +6,12 @@ import com.coffee_shop.coffee_shop.dto.response.CategoryResponse;
 import com.coffee_shop.coffee_shop.entity.Category;
 import com.coffee_shop.coffee_shop.mapper.CategoryMapper;
 import com.coffee_shop.coffee_shop.service.CategoryService;
-import com.coffee_shop.coffee_shop.service.S3Service;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,157 +26,61 @@ public class CategoryController {
 
     private final CategoryService categoryService;
     private final CategoryMapper categoryMapper;
-    private final S3Service s3Service;
 
-
-//    @GetMapping
-//    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
-//        List<CategoryResponse> categories = categoryService.getCategories();
-//
-//        return ResponseEntity.status(HttpStatus.OK).body(categories);
-//    }
-
-
+    // ── READ — public list (no token needed, handled in SecurityConfig) ───────
     @GetMapping
     public ResponseEntity<List<CategoryResponse>> getAllCategories() {
-        return ResponseEntity.status(HttpStatus.OK).body(categoryService.getCategories());
+        return ResponseEntity.ok(categoryService.getCategories());
     }
 
-    @Operation(
-            summary = "Get category by ID",
-            description = """
-                    Retrieve category details by category ID.
-                    
-                    Example:
-                    Get Coffee category information.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Category found successfully"),
-            @ApiResponse(responseCode = "404", description = "Category not found")
-    })
+    // ── READ — public single ─────────────────────────────────────────────────
     @GetMapping("/{id}")
     public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable Long id) {
-        Category cateId = categoryService.findById(id);
-        return ResponseEntity.ok().body(categoryMapper.toResponse(cateId));
+        Category category = categoryService.findById(id);
+        return ResponseEntity.ok(categoryMapper.toResponse(category));
     }
 
+    // ── READ — staff paginated list ──────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_READ', 'CATEGORY_MANAGE')")
+    @GetMapping("/pagination")
+    public ResponseEntity<PageDTO<CategoryResponse>> getCategories(
+            @RequestParam Map<String, String> params) {
+        Page<CategoryResponse> categoriesPageable =
+                categoryService.getCategoriesPageable(params);
+        return ResponseEntity.ok(new PageDTO<>(categoriesPageable));
+    }
 
-    @Operation(
-            summary = "Create new category",
-            description = """
-                    Create a new category.
-                    
-                    Example:
-                    Create categories such as Coffee, Tea, Dessert,
-                    or other product groups.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Category created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid category data")
-    })
+    // ── READ — active categories ──────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_READ', 'CATEGORY_MANAGE')")
+    @GetMapping("/activeCategory")
+    public ResponseEntity<List<CategoryResponse>> findActiveCategory() {
+        return ResponseEntity.ok(categoryService.findActiveCategories());
+    }
+
+    // ── CREATE ────────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_CREATE', 'CATEGORY_MANAGE')")
     @PostMapping
     public ResponseEntity<CategoryResponse> createCategory(
-            @RequestBody @Valid CategoryRequest categoryRequest) {
-
-        Category category = categoryService.createCategory(categoryMapper.toEntity(categoryRequest));
+            @Valid @RequestBody CategoryRequest categoryRequest) {
+        Category category = categoryService.createCategory(
+                categoryMapper.toEntity(categoryRequest)
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(categoryMapper.toResponse(category));
-
     }
 
-
-    @Operation(
-            summary = "Update category",
-            description = """
-                    Update existing category information.
-                    
-                    Example:
-                    Update category name or description.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Category updated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid category data"),
-            @ApiResponse(responseCode = "404", description = "Category not found")
-    })
+    // ── UPDATE — edit fields ──────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_UPDATE', 'CATEGORY_MANAGE')")
     @PutMapping("/{id}")
     public ResponseEntity<CategoryResponse> updateCategory(
             @PathVariable Long id,
-            @RequestBody @Valid CategoryRequest categoryRequest) {
-
+            @Valid @RequestBody CategoryRequest categoryRequest) {
         Category updated = categoryService.update(id, categoryRequest);
-        return ResponseEntity.ok().body(categoryMapper.toResponse(updated));
+        return ResponseEntity.ok(categoryMapper.toResponse(updated));
     }
 
-
-    @Operation(
-            summary = "Delete category",
-            description = """
-                    Delete category by ID.
-                    
-                    The category will be removed from the system.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Category deleted successfully"),
-            @ApiResponse(responseCode = "404", description = "Category not found")
-    })
-    @DeleteMapping("/{id}")
-    public ResponseEntity<CategoryResponse> deleteCategory(@PathVariable Long id) {
-        categoryService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
-
-
-    @Operation(
-            summary = "Get categories with pagination",
-            description = """
-                    Retrieve categories using pagination and filtering.
-                    
-                    Supported parameters:
-                    - page
-                    - size
-                    - search
-                    - sorting
-                    
-                    Example:
-                    /api/categories?page=0&size=10
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Categories retrieved successfully")
-    })
-    @GetMapping("/pagination")
-    public ResponseEntity<?> getCategories(
-            @RequestParam Map<String, String> params) {
-
-        Page<CategoryResponse> categoriesPageable =
-                categoryService.getCategoriesPageable(params);
-
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(new PageDTO<>(categoriesPageable));
-    }
-
-
-    @Operation(
-            summary = "Upload category image",
-            description = """
-                    Upload category image to AWS S3.
-                    
-                    If the category already has an image,
-                    the old image will be removed first.
-                    
-                    Example:
-                    Upload Coffee category image.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "Image uploaded successfully"),
-            @ApiResponse(responseCode = "404", description = "Category not found")
-    })
-
+    // ── UPDATE — upload image ─────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_UPDATE', 'CATEGORY_MANAGE')")
     @PutMapping("/{id}/image")
     public ResponseEntity<CategoryResponse> uploadProductImage(
             @PathVariable Long id,
@@ -187,48 +88,19 @@ public class CategoryController {
         return ResponseEntity.ok(categoryService.uploadImage(id, file));
     }
 
-
-    @Operation(
-            summary = "Change category status",
-            description = """
-                    Change category active status.
-                    
-                    Example:
-                    Activate or deactivate a category
-                    without deleting it.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "Category status changed successfully"),
-            @ApiResponse(responseCode = "404", description = "Category not found")
-    })
+    // ── UPDATE — toggle active/inactive status ────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_UPDATE', 'CATEGORY_MANAGE')")
     @PatchMapping("/{id}/stutusChange")
-    public ResponseEntity<CategoryResponse> changeStatus(
-            @PathVariable Long id) {
-
+    public ResponseEntity<CategoryResponse> changeStatus(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(categoryService.changeCategoryStatus(id));
     }
 
-
-    @Operation(
-            summary = "Get active categories",
-            description = """
-                    Retrieve only active categories.
-                    
-                    Used by customer applications
-                    to display available categories.
-                    """
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Active categories retrieved successfully")
-    })
-    @GetMapping("/activeCategory")
-    public ResponseEntity<List<CategoryResponse>> findActiveCategory() {
-        return ResponseEntity.ok().body(
-                categoryService.findActiveCategories()
-        );
-
+    // ── DELETE ────────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('CATEGORY_DELETE', 'CATEGORY_MANAGE')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        categoryService.delete(id);
+        return ResponseEntity.noContent().build();
     }
-
 }

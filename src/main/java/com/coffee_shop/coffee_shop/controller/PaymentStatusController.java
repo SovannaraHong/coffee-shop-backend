@@ -18,19 +18,22 @@ public class PaymentStatusController {
 
     private final PaymentService paymentService;
 
-    @PreAuthorize("hasAuthority('PAYMENT_MANAGE') or @accessGuard.ownsPayment(#paymentId, authentication)")
+    // ── READ — customer checks own payment status / staff checks any ──────────
+    @PreAuthorize("hasAnyAuthority('PAYMENT_READ', 'PAYMENT_MANAGE') or @accessGuard.ownsPayment(#paymentId, authentication)")
     @GetMapping("/{paymentId}/status")
     public ResponseEntity<PaymentResponse> checkStatus(@PathVariable Long paymentId) {
         return ResponseEntity.ok(paymentService.refreshPaymentStatus(paymentId));
     }
 
-    @PreAuthorize("hasAuthority('PAYMENT_MANAGE')")
+    // ── READ — staff: list all payments ──────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('PAYMENT_READ', 'PAYMENT_MANAGE')")
     @GetMapping("/all")
     public ResponseEntity<List<PaymentResponse>> getAll() {
         return ResponseEntity.ok(paymentService.getAll());
     }
 
-    @PreAuthorize("hasAuthority('PAYMENT_MANAGE')")
+    // ── READ — staff: paginated payment list ──────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('PAYMENT_READ', 'PAYMENT_MANAGE')")
     @GetMapping
     public ResponseEntity<PageDTO<PaymentResponse>> getPagination(@RequestParam Map<String, String> params) {
         return ResponseEntity.ok(paymentService.getPagination(params));

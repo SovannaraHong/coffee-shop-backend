@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.controller;
 
 import com.coffee_shop.coffee_shop.security.keycloak.KeycloakAuthenticationToken;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ public class MeController {
                              String name, boolean staff, List<String> authorities) {
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping
     public MeResponse me(Authentication authentication) {
         KeycloakAuthenticationToken token = (KeycloakAuthenticationToken) authentication;

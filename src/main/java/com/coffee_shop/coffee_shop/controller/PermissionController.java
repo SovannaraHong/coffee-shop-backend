@@ -20,29 +20,33 @@ public class PermissionController {
 
     private final PermissionService permissionService;
 
-    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
+    // ── CREATE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('PERMISSION_CREATE', 'PERMISSION_MANAGE')")
     @PostMapping
     public ResponseEntity<PermissionResponse> create(
             @Valid @RequestBody PermissionCreateRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(permissionService.create(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.create(request));
     }
 
-    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
+    // ── UPDATE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('PERMISSION_UPDATE', 'PERMISSION_MANAGE')")
     @PutMapping("/{id}")
-    public ResponseEntity<PermissionResponse> update(@PathVariable Long id, @Valid @RequestBody PermissionUpdateRequest request) {
+    public ResponseEntity<PermissionResponse> update(@PathVariable Long id,
+                                                     @Valid @RequestBody PermissionUpdateRequest request) {
         return ResponseEntity.ok(permissionService.update(id, request));
     }
 
-    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
+    // ── DELETE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('PERMISSION_DELETE', 'PERMISSION_MANAGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         permissionService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
+    // ── READ ─────────────────────────────────────────────────────────────────
+    // ROLE_MANAGE also allowed — the role drawer needs the full permission list
+    @PreAuthorize("hasAnyAuthority('PERMISSION_READ', 'PERMISSION_MANAGE', 'ROLE_MANAGE', 'ROLE_READ')")
     @GetMapping
     public ResponseEntity<List<PermissionResponse>> getAll() {
         return ResponseEntity.ok(permissionService.getAll());

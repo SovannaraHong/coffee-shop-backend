@@ -19,31 +19,38 @@ public class RoleController {
 
     private final RoleService roleService;
 
-    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
+    // ── CREATE ──────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('ROLE_CREATE', 'ROLE_MANAGE')")
     @PostMapping
     public ResponseEntity<RoleResponse> create(@Valid @RequestBody RoleCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roleService.create(request));
     }
 
-    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
+    // ── ASSIGN PERMISSION TO ROLE ────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('ROLE_UPDATE', 'ROLE_MANAGE')")
     @PostMapping("/{roleId}/permissions/{permissionId}")
-    public ResponseEntity<RoleResponse> assignPermission(@PathVariable Long roleId, @PathVariable Long permissionId) {
+    public ResponseEntity<RoleResponse> assignPermission(@PathVariable Long roleId,
+                                                         @PathVariable Long permissionId) {
         return ResponseEntity.ok(roleService.assignPermission(roleId, permissionId));
     }
 
-    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
+    // ── REMOVE PERMISSION FROM ROLE ──────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('ROLE_UPDATE', 'ROLE_MANAGE')")
     @DeleteMapping("/{roleId}/permissions/{permissionId}")
-    public ResponseEntity<RoleResponse> removePermission(@PathVariable Long roleId, @PathVariable Long permissionId) {
+    public ResponseEntity<RoleResponse> removePermission(@PathVariable Long roleId,
+                                                         @PathVariable Long permissionId) {
         return ResponseEntity.ok(roleService.removePermission(roleId, permissionId));
     }
 
-    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
+    // ── READ ─────────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('ROLE_READ', 'ROLE_MANAGE')")
     @GetMapping
     public ResponseEntity<List<RoleResponse>> getAll() {
         return ResponseEntity.ok(roleService.getAll());
     }
 
-    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
+    // ── DELETE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('ROLE_DELETE', 'ROLE_MANAGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         roleService.delete(id);

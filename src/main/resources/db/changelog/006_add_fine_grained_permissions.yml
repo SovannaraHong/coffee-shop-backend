@@ -1,0 +1,246 @@
+databaseChangeLog:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 006  Add all fine-grained CRUD permissions and assign every one to ADMIN
+  #
+  #  Strategy:
+  #    • INSERT IGNORE (MySQL) so re-running is safe — duplicate names skip.
+  #    • After all permissions exist, a single CROSS JOIN inserts any missing
+  #      role_permission rows for the ADMIN role.
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - changeSet:
+      id: 006_add_fine_grained_permissions
+      author: sovannaraHong@gmail.com
+      validCheckSum: ANY
+
+      changes:
+
+        # ── User permissions ────────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('USER_CREATE',  'Create new staff users'),
+                ('USER_READ',    'View staff user list and detail'),
+                ('USER_UPDATE',  'Edit staff user profile, change status, unlock, upload avatar'),
+                ('USER_DELETE',  'Delete staff users');
+
+        # ── Role permissions ────────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('ROLE_CREATE',  'Create new roles'),
+                ('ROLE_READ',    'View role list and detail'),
+                ('ROLE_UPDATE',  'Edit roles and assign/remove permissions'),
+                ('ROLE_DELETE',  'Delete roles');
+
+        # ── Permission permissions ──────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('PERMISSION_CREATE',  'Create new permissions'),
+                ('PERMISSION_READ',    'View permission list and detail'),
+                ('PERMISSION_UPDATE',  'Edit existing permissions'),
+                ('PERMISSION_DELETE',  'Delete permissions');
+
+        # ── Product permissions ─────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('PRODUCT_CREATE',  'Create new products'),
+                ('PRODUCT_READ',    'View product list (paginated) and detail'),
+                ('PRODUCT_UPDATE',  'Edit products, upload image, change status/featured flag'),
+                ('PRODUCT_DELETE',  'Delete products');
+
+        # ── Category permissions ────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('CATEGORY_MANAGE', 'Full category management'),
+                ('CATEGORY_CREATE', 'Create new categories'),
+                ('CATEGORY_READ',   'View category list (paginated) and active categories'),
+                ('CATEGORY_UPDATE', 'Edit categories, upload image, change status'),
+                ('CATEGORY_DELETE', 'Delete categories');
+
+        # ── Addon permissions ───────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('ADDON_MANAGE',  'Full add-on management'),
+                ('ADDON_CREATE',  'Create new add-ons'),
+                ('ADDON_READ',    'View add-on list and detail (staff)'),
+                ('ADDON_UPDATE',  'Edit add-ons and change status'),
+                ('ADDON_DELETE',  'Delete add-ons');
+
+        # ── Addon Ingredient permissions ────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('ADDON_INGREDIENT_MANAGE', 'Full add-on ingredient management'),
+                ('ADDON_INGREDIENT_CREATE', 'Add ingredients to an add-on'),
+                ('ADDON_INGREDIENT_READ',   'View ingredient list of an add-on'),
+                ('ADDON_INGREDIENT_UPDATE', 'Update add-on ingredient quantities'),
+                ('ADDON_INGREDIENT_DELETE', 'Remove ingredients from an add-on');
+
+        # ── Variant permissions ─────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('VARIANT_MANAGE', 'Full product variant management'),
+                ('VARIANT_CREATE', 'Create new product variants'),
+                ('VARIANT_READ',   'View variant list and detail'),
+                ('VARIANT_UPDATE', 'Edit variants, change price and status'),
+                ('VARIANT_DELETE', 'Delete product variants');
+
+        # ── Recipe permissions ──────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('RECIPE_MANAGE', 'Full recipe management'),
+                ('RECIPE_CREATE', 'Create recipes for product variants'),
+                ('RECIPE_READ',   'View recipes'),
+                ('RECIPE_UPDATE', 'Update recipe ingredients/quantities'),
+                ('RECIPE_DELETE', 'Delete recipes');
+
+        # ── Ingredient permissions ──────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('INGREDIENT_MANAGE', 'Full ingredient management'),
+                ('INGREDIENT_CREATE', 'Create new ingredients'),
+                ('INGREDIENT_READ',   'View ingredient list, detail, low-stock'),
+                ('INGREDIENT_UPDATE', 'Edit ingredients, adjust stock, enable/disable'),
+                ('INGREDIENT_DELETE', 'Delete ingredients');
+
+        # ── Supplier permissions ────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('SUPPLIER_MANAGE', 'Full supplier management'),
+                ('SUPPLIER_CREATE', 'Create new suppliers'),
+                ('SUPPLIER_READ',   'View supplier list, detail, purchase order history'),
+                ('SUPPLIER_UPDATE', 'Edit suppliers, activate/deactivate'),
+                ('SUPPLIER_DELETE', 'Delete suppliers');
+
+        # ── Purchase Order permissions ──────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('PURCHASE_ORDER_MANAGE', 'Full purchase order management'),
+                ('PURCHASE_ORDER_CREATE', 'Create purchase orders'),
+                ('PURCHASE_ORDER_READ',   'View purchase orders'),
+                ('PURCHASE_ORDER_UPDATE', 'Edit, submit, receive purchase orders'),
+                ('PURCHASE_ORDER_DELETE', 'Cancel purchase orders');
+
+        # ── Stock Adjustment permissions ────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('STOCK_ADJUSTMENT_MANAGE', 'Full stock adjustment access'),
+                ('STOCK_ADJUSTMENT_READ',   'View stock adjustment history and records');
+
+        # ── Transaction permissions ─────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('TRANSACTION_MANAGE', 'Full inventory transaction access'),
+                ('TRANSACTION_READ',   'View inventory transactions');
+
+        # ── Order permissions ───────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('ORDER_CREATE', 'Create orders on behalf of a customer (staff)'),
+                ('ORDER_READ',   'View order list and detail'),
+                ('ORDER_UPDATE', 'Confirm, prepare, mark ready, deliver, complete orders'),
+                ('ORDER_DELETE', 'Cancel orders');
+
+        # ── Payment permissions ─────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('PAYMENT_CREATE', 'Initiate payments'),
+                ('PAYMENT_READ',   'View payment list, detail, status');
+
+        # ── Review permissions ──────────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('REVIEW_MANAGE',   'Full review management'),
+                ('REVIEW_READ',     'View reviews (staff)'),
+                ('REVIEW_MODERATE', 'Moderate and delete any customer review');
+
+        # ── Audit Log permissions ───────────────────────────────────────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('AUDIT_LOG_MANAGE', 'Full audit log management'),
+                ('AUDIT_LOG_READ',   'View audit logs');
+
+        # ── Misc broad permissions (kept for backward compatibility) ─────────
+        - sql:
+            splitStatements: true
+            sql: |
+              INSERT IGNORE INTO permission (name, description) VALUES
+                ('CUSTOMER_MANAGE',  'View and manage customer accounts'),
+                ('INVENTORY_MANAGE', 'Broad inventory authority: ingredients, suppliers, purchase orders, stock, transactions, recipes');
+
+        # ── Assign ALL permissions to ADMIN role ─────────────────────────────
+        # INSERT IGNORE skips pairs that already exist (safe to re-run)
+        - sql:
+            splitStatements: false
+            sql: >
+              INSERT IGNORE INTO role_permission (role_id, permission_id)
+              SELECT r.id, p.id
+              FROM role r
+              CROSS JOIN permission p
+              WHERE r.name = 'ADMIN'
+
+      rollback:
+        - sql:
+            sql: |
+              DELETE FROM role_permission
+              WHERE role_id = (SELECT id FROM role WHERE name = 'ADMIN');
+
+        - sql:
+            sql: |
+              DELETE FROM permission
+              WHERE name IN (
+                'USER_CREATE','USER_READ','USER_UPDATE','USER_DELETE',
+                'ROLE_CREATE','ROLE_READ','ROLE_UPDATE','ROLE_DELETE',
+                'PERMISSION_CREATE','PERMISSION_READ','PERMISSION_UPDATE','PERMISSION_DELETE',
+                'PRODUCT_CREATE','PRODUCT_READ','PRODUCT_UPDATE','PRODUCT_DELETE',
+                'CATEGORY_MANAGE','CATEGORY_CREATE','CATEGORY_READ','CATEGORY_UPDATE','CATEGORY_DELETE',
+                'ADDON_MANAGE','ADDON_CREATE','ADDON_READ','ADDON_UPDATE','ADDON_DELETE',
+                'ADDON_INGREDIENT_MANAGE','ADDON_INGREDIENT_CREATE','ADDON_INGREDIENT_READ','ADDON_INGREDIENT_UPDATE','ADDON_INGREDIENT_DELETE',
+                'VARIANT_MANAGE','VARIANT_CREATE','VARIANT_READ','VARIANT_UPDATE','VARIANT_DELETE',
+                'RECIPE_MANAGE','RECIPE_CREATE','RECIPE_READ','RECIPE_UPDATE','RECIPE_DELETE',
+                'INGREDIENT_MANAGE','INGREDIENT_CREATE','INGREDIENT_READ','INGREDIENT_UPDATE','INGREDIENT_DELETE',
+                'SUPPLIER_MANAGE','SUPPLIER_CREATE','SUPPLIER_READ','SUPPLIER_UPDATE','SUPPLIER_DELETE',
+                'PURCHASE_ORDER_MANAGE','PURCHASE_ORDER_CREATE','PURCHASE_ORDER_READ','PURCHASE_ORDER_UPDATE','PURCHASE_ORDER_DELETE',
+                'STOCK_ADJUSTMENT_MANAGE','STOCK_ADJUSTMENT_READ',
+                'TRANSACTION_MANAGE','TRANSACTION_READ',
+                'ORDER_CREATE','ORDER_READ','ORDER_UPDATE','ORDER_DELETE',
+                'PAYMENT_CREATE','PAYMENT_READ',
+                'REVIEW_MANAGE','REVIEW_READ','REVIEW_MODERATE',
+                'AUDIT_LOG_MANAGE','AUDIT_LOG_READ',
+                'CUSTOMER_MANAGE','INVENTORY_MANAGE'
+              );

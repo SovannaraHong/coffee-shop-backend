@@ -1,6 +1,8 @@
 package com.coffee_shop.coffee_shop.security.keycloak;
 
 import com.coffee_shop.coffee_shop.dto.response.TokenRefreshResponse;
+import com.coffee_shop.coffee_shop.entity.Permission;
+import com.coffee_shop.coffee_shop.entity.User;
 import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.repository.UserRepository;
 import com.coffee_shop.coffee_shop.service.S3Service;
@@ -17,6 +19,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -98,7 +101,10 @@ public class StaffAuthService {
         Map<String, Object> user = new HashMap<>();   // Map.of() crashes on null values
         user.put("email", jwt.getClaimAsString("email"));
         user.put("name", jwt.getClaimAsString("name"));
-        user.put("avatarUrl", staff.getAvatarUrl()); // <- add this
+        user.put("fullName", jwt.getClaimAsString("name"));   // frontend reads fullName
+        user.put("avatarUrl", staff.getAvatarUrl());
+        user.put("roleName", staff.getRole() != null ? staff.getRole().getName() : null);
+        user.put("permissions", loadPermissions(staff));
         return new StaffLoginResponse(
                 (String) tokens.get("access_token"),
                 (String) tokens.get("refresh_token"),
@@ -174,5 +180,15 @@ public class StaffAuthService {
 
     private static long num(Object o) {
         return o instanceof Number n ? n.longValue() : 0L;
+    }
+
+
+    private List<String> loadPermissions(User staff) {
+        if (staff.getRole() == null) return List.of();
+        return staff.getRole().getPermissions().stream()
+                .map(Permission::getName)      // the key, e.g. "PRODUCT_READ"
+                .distinct()
+                .sorted()
+                .toList();
     }
 }

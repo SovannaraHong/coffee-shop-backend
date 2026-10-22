@@ -23,70 +23,64 @@ public class UserController {
 
     private final UserService userService;
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── CREATE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_CREATE', 'USER_MANAGE')")
     @PostMapping
     public ResponseEntity<UserResponse> create(@Valid @RequestBody UserCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createStaff(request));
     }
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── READ — list all ──────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_READ', 'USER_MANAGE')")
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAll() {
         return ResponseEntity.ok(userService.getAll());
     }
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── READ — pagination ────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_READ', 'USER_MANAGE')")
     @GetMapping("/pagination")
     public ResponseEntity<PageDTO<UserResponse>> getPagination(
             @RequestParam Map<String, String> params) {
-
-        return ResponseEntity.ok(
-                userService.getPagination(params)
-        );
+        return ResponseEntity.ok(userService.getPagination(params));
     }
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── UPDATE — change active/inactive status ───────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_UPDATE', 'USER_MANAGE')")
     @PatchMapping("/{id}/status")
     public ResponseEntity<UserResponse> changeStatus(@PathVariable Long id) {
         return ResponseEntity.ok(userService.changeStatus(id));
     }
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── UPDATE — edit profile fields ─────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_UPDATE', 'USER_MANAGE')")
     @PutMapping("/{id}")
     public ResponseEntity<UserResponse> update(
             @PathVariable Long id,
             @RequestBody UserUpdateRequest request) {
-
-        return ResponseEntity.ok(
-                userService.updateStaff(id, request)
-        );
+        return ResponseEntity.ok(userService.updateStaff(id, request));
     }
 
-
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── DELETE ───────────────────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_DELETE', 'USER_MANAGE')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(
-            @PathVariable Long id) {
-
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         userService.delete(id);
-
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── UPDATE — upload avatar ────────────────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_UPDATE', 'USER_MANAGE')")
     @PutMapping("/{id}/image")
     public ResponseEntity<UserResponse> uploadUserImage(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file
     ) throws Exception {
-
-        return ResponseEntity.ok(
-                userService.uploadImage(id, file)
-        );
+        return ResponseEntity.ok(userService.uploadImage(id, file));
     }
 
-
-    @PreAuthorize("hasAuthority('USER_MANAGE')")
+    // ── UPDATE — unlock locked account ───────────────────────────────────────
+    @PreAuthorize("hasAnyAuthority('USER_UPDATE', 'USER_MANAGE')")
     @PatchMapping("/{id}/unlock")
     public ResponseEntity<UserResponse> unlockAccount(@PathVariable Long id) {
         return ResponseEntity.ok(userService.unlockAccount(id));

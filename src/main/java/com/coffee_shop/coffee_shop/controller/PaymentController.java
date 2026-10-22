@@ -20,15 +20,15 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
 
-    @PreAuthorize("hasAuthority('PAYMENT_MANAGE') or @accessGuard.ownsOrder(#orderId, authentication)")
+    // ── CREATE — customer (or staff) initiates KHQR payment for an order ─────
+    @PreAuthorize("hasAnyAuthority('PAYMENT_CREATE', 'PAYMENT_MANAGE') or @accessGuard.ownsOrder(#orderId, authentication)")
     @PostMapping("/khqr/{orderId}")
-    public ResponseEntity<PaymentService.KhqrPaymentResult> initiateKhqrPayment(@PathVariable Long orderId) {
+    public ResponseEntity<PaymentService.KhqrPaymentResult> initiateKhqrPayment(
+            @PathVariable Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Order", orderId));
-
         PaymentService.KhqrPaymentResult result =
                 paymentService.createKhqrPayment(order, order.getFinalAmount());
-
         return ResponseEntity.ok(result);
     }
 }
