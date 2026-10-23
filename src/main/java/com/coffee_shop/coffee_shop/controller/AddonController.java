@@ -1,6 +1,7 @@
 package com.coffee_shop.coffee_shop.controller;
 
 import com.coffee_shop.coffee_shop.dto.request.AddonCreateRequest;
+import com.coffee_shop.coffee_shop.dto.request.AssignProductsRequest;
 import com.coffee_shop.coffee_shop.dto.response.AddonResponse;
 import com.coffee_shop.coffee_shop.service.AddonService;
 import jakarta.validation.Valid;
@@ -60,5 +61,21 @@ public class AddonController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         addonService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── PRODUCTS — ids of the products that offer this add-on ────────────────
+    @PreAuthorize("hasAnyAuthority('ADDON_UPDATE', 'ADDON_MANAGE')")
+    @GetMapping("/{id}/products")
+    public ResponseEntity<List<Long>> getProductIds(@PathVariable Long id) {
+        return ResponseEntity.ok(addonService.getProductIds(id));
+    }
+
+    // ── PRODUCTS — replace the products that offer this add-on ───────────────
+    @PreAuthorize("hasAnyAuthority('ADDON_UPDATE', 'ADDON_MANAGE')")
+    @PutMapping("/{id}/products")
+    public ResponseEntity<List<Long>> assignProducts(
+            @PathVariable Long id,
+            @RequestBody AssignProductsRequest request) {
+        return ResponseEntity.ok(addonService.assignProducts(id, request.getProductIds()));
     }
 }
