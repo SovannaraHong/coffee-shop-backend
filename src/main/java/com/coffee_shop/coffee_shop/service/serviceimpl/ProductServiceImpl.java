@@ -12,13 +12,11 @@ import com.coffee_shop.coffee_shop.exception.BadRequestException;
 import com.coffee_shop.coffee_shop.exception.FileValidationException;
 import com.coffee_shop.coffee_shop.exception.ImageUploadException;
 import com.coffee_shop.coffee_shop.exception.ResourceNotFoundException;
+import com.coffee_shop.coffee_shop.dto.response.AddonResponse;
+import com.coffee_shop.coffee_shop.mapper.AddonMapper;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
 import com.coffee_shop.coffee_shop.mapper.VariantMapper;
-import com.coffee_shop.coffee_shop.repository.AddonRepository;
-import com.coffee_shop.coffee_shop.repository.OrderDetailRepository;
-import com.coffee_shop.coffee_shop.repository.ProductRepository;
-import com.coffee_shop.coffee_shop.repository.RecipeRepository;
-import com.coffee_shop.coffee_shop.repository.VariantRepository;
+import com.coffee_shop.coffee_shop.repository.*;
 import com.coffee_shop.coffee_shop.service.CategoryService;
 import com.coffee_shop.coffee_shop.service.ProductService;
 import com.coffee_shop.coffee_shop.service.S3Service;
@@ -63,6 +61,8 @@ public class ProductServiceImpl implements ProductService {
 
     private final AddonRepository addonRepository;
 
+    private final AddonMapper addonMapper;
+
     private final CacheManager cacheManager;
     private final ProductCacheKeyGenerator keyGenerator;
 
@@ -96,7 +96,7 @@ public class ProductServiceImpl implements ProductService {
         product.setIsActive(productRequest.getIsActive() != null ? productRequest.getIsActive() : true);
         product.setFeatured(productRequest.getFeatured() != null ? productRequest.getFeatured() : true);
 
-        // CHANGED: LinkedHashSet instead of Collectors.toSet() (HashSet) to keep insertion order
+        // LinkedHashSet instead of Collectors.toSet() (HashSet) to keep insertion order
         Set<Variant> variants = productRequest.getVariants().stream()
                 .map(v -> {
                     Variant variant = variantMapper.toEntity(v);
@@ -121,7 +121,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", id));
         Category category = categoryService.findById(productRequest.getCategoryId());
 
-        // CHANGED: duplicate-name check is now case-insensitive (same as create())
+        // Duplicate-name check is case-insensitive (same as create())
         // and throws BadRequestException (400) instead of ResourceNotFoundException (404).
         if (!product.getName().equalsIgnoreCase(productRequest.getName())) {
             Optional<Product> duplicate = productRepository.findByNameIgnoreCase(productRequest.getName());
@@ -328,7 +328,6 @@ public class ProductServiceImpl implements ProductService {
     // TODO WITH SELL TABLE
     @Override
     public List<ProductResponse> findBestSellingProducts() {
-        // CHANGED: removed the unused productRepository.findAll() call (it loaded every product for nothing)
         return List.of();
     }
 
@@ -339,6 +338,36 @@ public class ProductServiceImpl implements ProductService {
                 .findTop10ByOrderByCreatedAtDesc()
                 .stream()
                 .map(productMapper::toResponse)
+                .toList();
+    }
+
+  
+
+    // ── ADDON ASSIGNMENT ─────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AddonResponse> getAddonsByProductId(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", productId));
+        return product.getAddons().stream()
+                .map(addonMapper::toAddonResponse)
+                .toList();
+    }
+
+    @CacheEvict(value = {"productPagination", "productList"}, allEntries = true)
+    @Override
+    @Transactional
+    public List<AddonResponse> assignAddons(Long productId, Set<Long> addonIds) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> ResourceNotFoundException.notFoundException("Product", productId));
+
+        // Replace full addon set (pass empty set to remove all addons)
+        product.setAddons(resolveAddons(addonIds));
+        productRepository.save(product);
+
+        return product.getAddons().stream()
+                .map(addonMapper::toAddonResponse)
                 .toList();
     }
 

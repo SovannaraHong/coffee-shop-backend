@@ -2,6 +2,7 @@ package com.coffee_shop.coffee_shop.service;
 
 import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
+import com.coffee_shop.coffee_shop.dto.response.AddonResponse;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
 import com.coffee_shop.coffee_shop.entity.Product;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface ProductService {
 
@@ -26,7 +28,6 @@ public interface ProductService {
 
     ProductResponse uploadProductImage(Long id, MultipartFile file) throws IOException;
 
-
     ProductResponse changeProductStatus(Long id);
 
     ProductResponse changeFeatureStatus(Long id);
@@ -40,4 +41,14 @@ public interface ProductService {
 
     List<ProductResponse> findNewestProducts();
 
+    // ── ADDON ASSIGNMENT ──────────────────────────────────────────────────────
+
+    /** Returns all addons currently linked to a product. */
+    List<AddonResponse> getAddonsByProductId(Long productId);
+
+    /**
+     * Replaces the full set of addons for a product.
+     * Pass an empty set to remove all addons.
+     */
+    List<AddonResponse> assignAddons(Long productId, Set<Long> addonIds);
 }

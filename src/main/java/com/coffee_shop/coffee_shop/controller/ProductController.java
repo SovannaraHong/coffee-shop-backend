@@ -2,6 +2,8 @@ package com.coffee_shop.coffee_shop.controller;
 
 import com.coffee_shop.coffee_shop.dto.PageDTO;
 import com.coffee_shop.coffee_shop.dto.request.ProductRequest;
+import com.coffee_shop.coffee_shop.dto.request.AssignAddonsRequest;
+import com.coffee_shop.coffee_shop.dto.response.AddonResponse;
 import com.coffee_shop.coffee_shop.dto.response.ProductResponse;
 import com.coffee_shop.coffee_shop.entity.Product;
 import com.coffee_shop.coffee_shop.mapper.ProductMapper;
@@ -132,5 +134,23 @@ public class ProductController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ==================================================
+    // 🟣 ADDONS — assign / list addons for a product
+    // ==================================================
+
+    @PreAuthorize("hasAnyAuthority('PRODUCT_READ', 'PRODUCT_MANAGE')")
+    @GetMapping("/{id}/addons")
+    public ResponseEntity<List<AddonResponse>> getAddons(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.getAddonsByProductId(id));
+    }
+
+    @PreAuthorize("hasAnyAuthority('PRODUCT_UPDATE', 'PRODUCT_MANAGE')")
+    @PutMapping("/{id}/addons")
+    public ResponseEntity<List<AddonResponse>> assignAddons(
+            @PathVariable Long id,
+            @RequestBody AssignAddonsRequest request) {
+        return ResponseEntity.ok(productService.assignAddons(id, request.getAddonIds()));
     }
 }
